@@ -2,11 +2,16 @@ package pcsweb
 
 import (
 	"net/http"
+	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
+	"fmt"
 )
 
 func middleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// next handler
+		w.Header().Set("Access-Control-Allow-Origin", "*")             //允许访问所有域
+		w.Header().Add("Access-Control-Allow-Headers", "Content-Type") //header的类型
+		//w.Header().Set("content-type", "application/json")
+
 		next.ServeHTTP(w, r)
 	}
 }
@@ -14,10 +19,24 @@ func middleware(next http.HandlerFunc) http.HandlerFunc {
 func activeAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	next2 := middleware(next)
 
-	// TODO web登录
-
 	return func(w http.ResponseWriter, r *http.Request) {
-		next2.ServeHTTP(w, r)
+		err := pcsconfig.Config.Reload()
+		if err != nil {
+			fmt.Printf("重载配置错误: %s\n", err)
+		}
+
+		activeUser := pcsconfig.Config.ActiveUser()
+		fmt.Println(activeUser)
+
+		if activeUser.Name == "" {
+			response := &Response{
+				Code: NotLogin,
+				Msg: "Pease login first!",
+			}
+			w.Write(response.JSON())
+		} else {
+			next2.ServeHTTP(w, r)
+		}
 	}
 }
 

@@ -53,7 +53,7 @@
     // 获取目录下的文件和目录列表
     $.ajax({
         type: "GET",
-        url: "/cgi-bin/baidu/pcs/file/list",
+        url: "/api/v1/files",
         data: formParam,
         dataType: "json",
         success: function (result) {

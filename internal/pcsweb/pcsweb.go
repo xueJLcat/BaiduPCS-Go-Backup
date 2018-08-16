@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/GeertJohan/go.rice"
 	"net/http"
+	"golang.org/x/net/websocket"
 )
 
 var (
@@ -38,10 +39,17 @@ func StartServer(port uint) error {
 	}
 
 	http.HandleFunc("/", rootMiddleware)
+
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(staticBox.HTTPBox())))
 	http.HandleFunc("/about.html", middleware(aboutPage))
 	http.HandleFunc("/index.html", middleware(indexPage))
-	http.HandleFunc("/cgi-bin/baidu/pcs/file/list", activeAuthMiddleware(fileList))
+
+	http.HandleFunc("/api/v1/logout", activeAuthMiddleware(LogoutHandle))
+	http.HandleFunc("/api/v1/user", activeAuthMiddleware(UserHandle))
+	http.HandleFunc("/api/v1/files", activeAuthMiddleware(fileList))
+
+	http.Handle("/ws", websocket.Handler(WSHandler))
+
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
 

@@ -157,20 +157,29 @@ func download(conn *websocket.Conn, id int, downloadURL, savePath string, loadBa
 					leftStr = (time.Duration((totalSize-downloaded)/(speeds)) * time.Second).String()
 				}
 
+				var avgSpeed int64 = 0
+				timeUsed := v.TimeElapsed()/1e7*1e7
+				timeSecond := v.TimeElapsed().Seconds()
+				if(int64(timeSecond) > 0){
+					avgSpeed = downloaded / int64(timeSecond)
+				}
+				//fmt.Println(timeUsed, timeSecond, avgSpeed)
+
 				fmt.Fprintf(downloadOptions.Out, format, id,
 					converter.ConvertFileSize(downloaded, 2),
 					converter.ConvertFileSize(totalSize, 2),
 					converter.ConvertFileSize(speeds, 2),
-					v.TimeElapsed()/1e7*1e7, leftStr,
+					timeUsed, leftStr,
 				)
 
-				MsgBody = fmt.Sprintf("{\"lastID\": %d, \"download_size\": \"%s\", \"total_size\": \"%s\", \"percent\": %.2f, \"speed\": \"%s\", \"time_used\": \"%s\", \"time_left\": \"%s\"}", id,
+				MsgBody = fmt.Sprintf("{\"lastID\": %d, \"download_size\": \"%s\", \"total_size\": \"%s\", \"percent\": %.2f, \"speed\": \"%s\", \"avg_speed\": \"%s\", \"time_used\": \"%s\", \"time_left\": \"%s\"}", id,
 					converter.ConvertFileSize(downloaded, 2),
 					converter.ConvertFileSize(totalSize, 2),
 					float64(downloaded) / float64(totalSize) * 100,
 					converter.ConvertFileSize(speeds, 2),
-					v.TimeElapsed()/1e7*1e7, leftStr)
-				err = sendResponse(conn, 2, 4, "下载中", MsgBody)
+					converter.ConvertFileSize(avgSpeed, 2),
+					timeUsed, leftStr)
+				err = sendResponse(conn, 2, 5, "下载中", MsgBody)
 				if err != nil {
 					return
 				}
@@ -210,7 +219,7 @@ func download(conn *websocket.Conn, id int, downloadURL, savePath string, loadBa
 
 	if !newCfg.IsTest {
 		MsgBody = fmt.Sprintf("{\"lastID\": %d, \"savePath\": \"%s\"}", id, savePath)
-		err = sendResponse(conn, 2, 5, "下载完成", MsgBody)
+		err = sendResponse(conn, 2, 6, "下载完成", MsgBody)
 		if err != nil {
 			return err
 		}
@@ -360,6 +369,9 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 					return
 				}
 
+				MsgBody = fmt.Sprintf("{\"lastID\": %d, \"path\": \"%s\"}", task.ID, task.path)
+				sendResponse(conn, 2, 2, "将会使用实际的文件替代目录", MsgBody)
+
 				for k := range fileList {
 					lastID++
 					subTask := &dtask{
@@ -389,7 +401,7 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 			}
 
 			MsgBody = fmt.Sprintf("{\"lastID\": %d, \"path\": \"%s\"}", task.ID, task.path)
-			err := sendResponse(conn, 2, 2, "准备下载", MsgBody)
+			err := sendResponse(conn, 2, 3, "准备下载", MsgBody)
 			if err != nil {
 				return
 			}
@@ -402,7 +414,7 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 
 			if !options.IsTest {
 				MsgBody = fmt.Sprintf("{\"lastID\": %d, \"savePath\": \"%s\"}", task.ID, task.savePath)
-				err := sendResponse(conn, 2, 3, "将会下载到路径", MsgBody)
+				err := sendResponse(conn, 2, 4, "将会下载到路径", MsgBody)
 				if err != nil {
 					return
 				}

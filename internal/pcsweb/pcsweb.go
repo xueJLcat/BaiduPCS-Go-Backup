@@ -46,6 +46,8 @@ func StartServer(port uint) error {
 
 	http.HandleFunc("/api/v1/logout", activeAuthMiddleware(LogoutHandle))
 	http.HandleFunc("/api/v1/user", activeAuthMiddleware(UserHandle))
+	http.HandleFunc("/api/v1/file_operation", activeAuthMiddleware(FileOperationHandle))
+	http.HandleFunc("/api/v1/mkdir", activeAuthMiddleware(MkdirHandle))
 	http.HandleFunc("/api/v1/files", activeAuthMiddleware(fileList))
 
 	http.Handle("/ws", websocket.Handler(WSHandler))

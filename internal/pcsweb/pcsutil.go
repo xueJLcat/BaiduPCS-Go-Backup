@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"fmt"
 	"encoding/json"
+	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
+	"strings"
+	"net/url"
 )
 
 type Response struct {
@@ -50,11 +53,62 @@ func LogoutHandle(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("保存配置成功\n")
 }
 
+func FileOperationHandle(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	rmethod := r.Form.Get("method")
+	rpaths, _ := url.QueryUnescape(r.Form.Get("paths"))
+	paths := strings.Split(rpaths, "|")
+	var err error
+	if (rmethod == "copy"){
+		err = pcscommand.RunCopy(paths...)
+	} else if (rmethod == "move"){
+		err = pcscommand.RunMove(paths...)
+	} else if (rmethod == "remove"){
+		err = pcscommand.RunRemove(paths...)
+	} else {
+		w.Write((&Response{
+			Code: 2,
+			Msg:  "method error",
+		}).JSON())
+	}
+	if err != nil {
+		w.Write((&Response{
+			Code: 1,
+			Msg:  err.Error(),
+		}).JSON())
+		return
+	}
+	w.Write((&Response{
+		Code: 0,
+		Msg:  "success",
+	}).JSON())
+}
+
+func MkdirHandle(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	rpath, _ := url.QueryUnescape(r.Form.Get("path"))
+	err := pcscommand.RunMkdir(rpath)
+	if err != nil {
+		w.Write((&Response{
+			Code: 1,
+			Msg:  err.Error(),
+		}).JSON())
+		return
+	}
+	w.Write((&Response{
+		Code: 0,
+		Msg:  "success",
+	}).JSON())
+}
+
 func fileList(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
-	fpath := r.Form.Get("path")
+	fpath, _ := url.QueryUnescape(r.Form.Get("path"))
 	dataReadCloser, err := pcsconfig.Config.ActiveUserBaiduPCS().PrepareFilesDirectoriesList(fpath, baidupcs.DefaultOrderOptions)
+
+	w.Header().Set("content-type", "application/json")
+
 	if err != nil {
 		w.Write((&Response{
 			Code: 1,

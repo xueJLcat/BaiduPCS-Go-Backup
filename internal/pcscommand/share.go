@@ -16,7 +16,7 @@ import (
 
 // RunShareSet 执行分享
 func RunShareSet(paths []string, option *baidupcs.ShareOption) {
-	pcspaths, err := getAllAbsPaths(paths...)
+	pcspaths, err := GetAllAbsPaths(paths...)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -67,7 +67,7 @@ func RunShareList() {
 	tb.Render()
 }
 
-func getShareDLink(pcspath string) (dlink string) {
+func GetShareDLink(pcspath string) (dlink string) {
 	var (
 		pcs = GetBaiduPCS()
 	)

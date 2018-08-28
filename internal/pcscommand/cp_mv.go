@@ -9,17 +9,17 @@ import (
 )
 
 // RunCopy 执行 批量拷贝文件/目录
-func RunCopy(paths ...string) {
-	runCpMvOp("copy", paths...)
+func RunCopy(paths ...string) (err error) {
+	return runCpMvOp("copy", paths...)
 }
 
 // RunMove 执行 批量 重命名/移动 文件/目录
-func RunMove(paths ...string) {
-	runCpMvOp("move", paths...)
+func RunMove(paths ...string) (err error) {
+	return runCpMvOp("move", paths...)
 }
 
-func runCpMvOp(op string, paths ...string) {
-	err := cpmvPathValid(paths...) // 检查路径的有效性, 目前只是判断数量
+func runCpMvOp(op string, paths ...string) (err error) {
+	err = cpmvPathValid(paths...) // 检查路径的有效性, 目前只是判断数量
 	if err != nil {
 		fmt.Printf("%s path error, %s\n", op, err)
 		return
@@ -27,7 +27,7 @@ func runCpMvOp(op string, paths ...string) {
 
 	froms, to := cpmvParsePath(paths...) // 分割
 
-	froms, err = getAllAbsPaths(froms...)
+	froms, err = GetAllAbsPaths(froms...)
 	if err != nil {
 		fmt.Printf("解析路径出错, %s\n", err)
 		return
@@ -38,7 +38,7 @@ func runCpMvOp(op string, paths ...string) {
 
 	// 尝试匹配
 	if patternRE.MatchString(to) {
-		tos, _ := getAllAbsPaths(to)
+		tos, _ := GetAllAbsPaths(to)
 
 		switch len(tos) {
 		case 0:

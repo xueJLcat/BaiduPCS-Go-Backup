@@ -10,7 +10,7 @@ import (
 
 // RunExport 执行导出文件和目录
 func RunExport(pcspaths []string, rootPath string) {
-	pcspaths, err := getAllAbsPaths(pcspaths...)
+	pcspaths, err := GetAllAbsPaths(pcspaths...)
 	if err != nil {
 		fmt.Println(err)
 		return

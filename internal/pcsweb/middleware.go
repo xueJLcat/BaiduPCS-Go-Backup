@@ -10,8 +10,6 @@ func middleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")             //允许访问所有域
 		w.Header().Add("Access-Control-Allow-Headers", "Content-Type") //header的类型
-		//w.Header().Set("content-type", "application/json")
-
 		next.ServeHTTP(w, r)
 	}
 }
@@ -26,13 +24,15 @@ func activeAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		activeUser := pcsconfig.Config.ActiveUser()
-		fmt.Println(activeUser)
+		//fmt.Println(activeUser)
 
 		if activeUser.Name == "" {
 			response := &Response{
 				Code: NotLogin,
 				Msg: "Pease login first!",
 			}
+			w.Header().Set("Access-Control-Allow-Origin", "*")             //允许访问所有域
+			w.Header().Add("Access-Control-Allow-Headers", "Content-Type") //header的类型
 			w.Write(response.JSON())
 		} else {
 			next2.ServeHTTP(w, r)

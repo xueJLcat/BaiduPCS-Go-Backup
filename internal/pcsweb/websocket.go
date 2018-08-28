@@ -6,7 +6,6 @@ import (
 	"github.com/bitly/go-simplejson"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	"github.com/iikira/Baidu-Login"
-	"encoding/json"
 )
 
 
@@ -50,24 +49,24 @@ func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 				Code: 0,
 				Type: 1,
 				Status: 2,
-				Data: json.RawMessage(verifyTypes),
+				Data: verifyTypes,
 			}
 			if err = websocket.Message.Send(conn, string(response.JSON())); err != nil {
 				fmt.Println("send err:", err.Error())
-				return
+				return err
 			}
 
 			verifyType, err := getValueFromWSJson(conn, "verify_type")
 			if err != nil {
 				fmt.Println("receive err:",err.Error())
-				return
+				return err
 			}
 			fmt.Println(verifyType)
 
 			msg := bc.SendCodeToUser(verifyType, lj.Data.Token) // 发送验证码
 			if err = websocket.Message.Send(conn, "{\"code\": 0, \"type\": 1, \"status\": 3}"); err != nil {
 				fmt.Println("send err:", err.Error())
-				return
+				return err
 			}
 			fmt.Printf("消息: %s\n\n", msg)
 
@@ -75,7 +74,7 @@ func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 				vcode, err = getValueFromWSJson(conn, "verify_code")
 				if err != nil {
 					fmt.Println("receive err:",err.Error())
-					return
+					return err
 				}
 				fmt.Println(vcode)
 
@@ -84,7 +83,7 @@ func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 					errMsg := fmt.Sprintf("{\"code\": 0, \"type\": 1, \"status\": 4, \"error_time\":%d, \"error_msg\":\"%s\"}", et+1, nlj.ErrInfo.Msg)
 					if err = websocket.Message.Send(conn, errMsg); err != nil {
 						fmt.Println("send err:", err.Error())
-						return
+						return err
 					}
 					continue
 				}
@@ -96,22 +95,22 @@ func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 			errMsg := fmt.Sprintf("{\"code\": 0, \"type\": 1, \"status\": 5, \"msg\":\"account or password error\"}")
 			if err = websocket.Message.Send(conn, errMsg); err != nil {
 				fmt.Println("send err:", err.Error())
-				return
+				return err
 			}
-			return
+			return err
 		case "500001", "500002": // 验证码
 			fmt.Printf("\n%s\n", lj.ErrInfo.Msg)
 			if lj.ErrInfo.No == "500002"{
 				errMsg := fmt.Sprintf("{\"code\": 0, \"type\": 1, \"status\": 4}")
 				if err = websocket.Message.Send(conn, errMsg); err != nil {
 					fmt.Println("send err:", err.Error())
-					return
+					return err
 				}
 			}
 			vcodestr = lj.Data.CodeString
 			if vcodestr == "" {
 				err = fmt.Errorf("未找到codeString")
-				return
+				return err
 			}
 
 			verifyImgURL := "https://wappass.baidu.com/cgi-bin/genimage?" + vcodestr
@@ -119,13 +118,13 @@ func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 			errMsg := fmt.Sprintf("{\"code\": 0, \"type\": 1, \"status\": 6, \"img_url\":\"%s\"}", verifyImgURL)
 			if err = websocket.Message.Send(conn, errMsg); err != nil {
 				fmt.Println("send err:", err.Error())
-				return
+				return err
 			}
 
 			vcode, err = getValueFromWSJson(conn, "verify_code")
 			if err != nil {
 				fmt.Println("receive err:",err.Error())
-				return
+				return err
 			}
 			fmt.Println(vcode)
 			continue
@@ -138,7 +137,7 @@ func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 			if err = websocket.Message.Send(conn, string(response.JSON())); err != nil {
 				fmt.Println("send err:", err.Error())
 			}
-			return
+			return err
 		}
 	}
 
@@ -152,7 +151,7 @@ loginSuccess:
 	successMsg := fmt.Sprintf("{\"code\": 0, \"type\": 1, \"status\": 7, \"username\":\"%s\"}", baidu.Name)
 	if err = websocket.Message.Send(conn, successMsg); err != nil {
 		fmt.Println("send err:", err.Error())
-		return
+		return err
 	}
 
 	err = pcsconfig.Config.Save()
@@ -160,7 +159,19 @@ loginSuccess:
 		fmt.Printf("保存配置错误: %s\n", err)
 	}
 	fmt.Printf("保存配置成功\n")
-	return
+	return err
+}
+
+func WSDownload(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
+	paths, _ := rJson.Get("paths").StringArray()
+	fmt.Println(paths)
+
+	options := &DownloadOptions{
+		IsTest: false,
+		IsOverwrite: true,
+	}
+
+	return RunDownload(conn, paths, options)
 }
 
 func WSHandler(conn *websocket.Conn){
@@ -184,6 +195,12 @@ func WSHandler(conn *websocket.Conn){
 			WSLogin(conn, rJson)
 			if err != nil {
 				fmt.Println("WSLogin err:", err.Error())
+				continue
+			}
+		case 2:
+			WSDownload(conn, rJson)
+			if err != nil {
+				fmt.Println("WSDownload err:", err.Error())
 				continue
 			}
 		}

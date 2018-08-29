@@ -20,7 +20,6 @@ import (
 	"strings"
 	"net/http"
 	"errors"
-	"net/http/cookiejar"
 	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
 	"golang.org/x/net/websocket"
 )
@@ -461,7 +460,7 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 				client.SetKeepAlive(true)
 				err = download(conn, task.ID, dlink, task.savePath, dlinks, client, *cfg, options)
 			} else {
-				dfunc := func(downloadURL string, jar *cookiejar.Jar) error {
+				dfunc := func(downloadURL string, jar http.CookieJar) error {
 					h := pcsconfig.Config.HTTPClient()
 					h.SetCookiejar(jar)
 					h.SetKeepAlive(true)

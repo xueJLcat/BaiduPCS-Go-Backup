@@ -296,7 +296,30 @@ func fileList(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
 	fpath := r.Form.Get("path")
-	dataReadCloser, err := pcsconfig.Config.ActiveUserBaiduPCS().PrepareFilesDirectoriesList(fpath, baidupcs.DefaultOrderOptions)
+	orderBy := r.Form.Get("order_by")
+	order := r.Form.Get("order")
+	orderOptions := &baidupcs.OrderOptions{}
+	switch {
+	case order == "asc":
+		orderOptions.Order = baidupcs.OrderAsc
+	case order == "desc":
+		orderOptions.Order = baidupcs.OrderDesc
+	default:
+		orderOptions.Order = baidupcs.OrderAsc
+	}
+
+	switch {
+	case orderBy == "time":
+		orderOptions.By = baidupcs.OrderByTime
+	case orderBy == "name":
+		orderOptions.By = baidupcs.OrderByName
+	case orderBy == "size":
+		orderOptions.By = baidupcs.OrderBySize
+	default:
+		orderOptions.By = baidupcs.OrderByName
+	}
+
+	dataReadCloser, err := pcsconfig.Config.ActiveUserBaiduPCS().PrepareFilesDirectoriesList(fpath, orderOptions)
 
 	w.Header().Set("content-type", "application/json")
 

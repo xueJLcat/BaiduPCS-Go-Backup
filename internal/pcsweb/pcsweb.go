@@ -41,11 +41,14 @@ func StartServer(port uint) error {
 	http.HandleFunc("/", rootMiddleware)
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(staticBox.HTTPBox())))
-	http.HandleFunc("/about.html", middleware(aboutPage))
 	http.HandleFunc("/index.html", middleware(indexPage))
 
 	http.HandleFunc("/api/v1/logout", activeAuthMiddleware(LogoutHandle))
 	http.HandleFunc("/api/v1/user", activeAuthMiddleware(UserHandle))
+	http.HandleFunc("/api/v1/quota", activeAuthMiddleware(QuotaHandle))
+	http.HandleFunc("/api/v1/share", activeAuthMiddleware(ShareHandle))
+	http.HandleFunc("/api/v1/setting", activeAuthMiddleware(SettingHandle))
+	http.HandleFunc("/api/v1/local_file", activeAuthMiddleware(LocalFileHandle))
 	http.HandleFunc("/api/v1/file_operation", activeAuthMiddleware(FileOperationHandle))
 	http.HandleFunc("/api/v1/mkdir", activeAuthMiddleware(MkdirHandle))
 	http.HandleFunc("/api/v1/files", activeAuthMiddleware(fileList))
@@ -55,14 +58,11 @@ func StartServer(port uint) error {
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
 
-func aboutPage(w http.ResponseWriter, r *http.Request) {
-	tmpl := boxTmplParse("index", "index.html", "about.html")
-	checkErr(tmpl.Execute(w, nil))
-}
+
 
 func indexPage(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
-	tmpl := boxTmplParse("index", "index.html", "baidu/userinfo.html")
-	checkErr(tmpl.Execute(w, r.Form.Get("path")))
+	tmpl := boxTmplParse("index", "index.html")
+	tmpl.Execute(w, nil)
 }

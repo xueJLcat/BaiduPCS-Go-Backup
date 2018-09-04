@@ -6,6 +6,7 @@ import (
 	"github.com/bitly/go-simplejson"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	"github.com/iikira/Baidu-Login"
+	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
 )
 
 
@@ -174,6 +175,20 @@ func WSDownload(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 	return RunDownload(conn, paths, options)
 }
 
+func WSUpload(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
+	paths, _ := rJson.Get("paths").StringArray()
+	tpath, _ := rJson.Get("tpath").String()
+	fmt.Println(paths, tpath)
+
+	//options := &DownloadOptions{
+	//	IsTest: false,
+	//	IsOverwrite: true,
+	//}
+
+	pcscommand.RunUpload(paths, tpath, nil)
+	return
+}
+
 func WSHandler(conn *websocket.Conn){
 	fmt.Printf("a new ws conn: %s->%s\n", conn.RemoteAddr().String(), conn.LocalAddr().String())
 
@@ -201,6 +216,12 @@ func WSHandler(conn *websocket.Conn){
 			WSDownload(conn, rJson)
 			if err != nil {
 				fmt.Println("WSDownload err:", err.Error())
+				continue
+			}
+		case 3:
+			WSUpload(conn, rJson)
+			if err != nil {
+				fmt.Println("WSUpload err:", err.Error())
 				continue
 			}
 		}

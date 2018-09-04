@@ -50,7 +50,7 @@ func rootMiddleware(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(404)
 
-		tmpl := boxTmplParse("index", "index.html", "404.html")
-		checkErr(tmpl.Execute(w, nil))
+		//tmpl := boxTmplParse("index", "index.html", "404.html")
+		//checkErr(tmpl.Execute(w, nil))
 	}
 }

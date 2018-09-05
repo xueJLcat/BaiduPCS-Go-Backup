@@ -17,11 +17,7 @@ import (
 
 func UserHandle(w http.ResponseWriter, r *http.Request) {
 	activeUser := pcsconfig.Config.ActiveUser()
-	response := &Response{
-		Code: 0,
-		Data: activeUser,
-	}
-	w.Write(response.JSON())
+	sendHttpResponse(w, "", activeUser)
 }
 
 func QuotaHandle(w http.ResponseWriter, r *http.Request) {
@@ -31,11 +27,7 @@ func QuotaHandle(w http.ResponseWriter, r *http.Request) {
 		converter.ConvertFileSize(used, 2),
 		converter.ConvertFileSize(quota - used, 2),
 		100 * float64(used) / float64(quota))
-	response := &Response{
-		Code: 0,
-		Data: quotaMsg,
-	}
-	w.Write(response.JSON())
+	sendHttpResponse(w, "", quotaMsg)
 }
 
 func DownloadHandle(w http.ResponseWriter, r *http.Request) {
@@ -45,11 +37,7 @@ func DownloadHandle(w http.ResponseWriter, r *http.Request) {
 
 	dl := DownloaderMap[id]
 	if dl == nil {
-		response := &Response{
-			Code: -6,
-			Msg: "任务已经终结",
-		}
-		w.Write(response.JSON())
+		sendHttpErrorResponse(w, -6, "任务已经终结")
 		return
 	}
 
@@ -76,18 +64,10 @@ func ShareHandle(w http.ResponseWriter, r *http.Request) {
 	if rmethod == "list" {
 		records, err := pcsconfig.Config.ActiveUserBaiduPCS().ShareList(1)
 		if err != nil {
-			response := &Response{
-				Code: -1,
-				Msg: err.Error(),
-			}
-			w.Write(response.JSON())
+			sendHttpErrorResponse(w, -1, err.Error())
 			return
 		}
-		response := &Response{
-			Code: 0,
-			Data: records,
-		}
-		w.Write(response.JSON())
+		sendHttpResponse(w, "", records)
 	}
 	if rmethod == "cancel" {
 		rids := strings.Split(r.Form.Get("id"), ",")
@@ -98,18 +78,10 @@ func ShareHandle(w http.ResponseWriter, r *http.Request) {
 		}
 		err := pcsconfig.Config.ActiveUserBaiduPCS().ShareCancel(ids)
 		if err != nil {
-			response := &Response{
-				Code: -1,
-				Msg: err.Error(),
-			}
-			w.Write(response.JSON())
+			sendHttpErrorResponse(w, -1, err.Error())
 			return
 		}
-		response := &Response{
-			Code: 0,
-			Msg: "success",
-		}
-		w.Write(response.JSON())
+		sendHttpResponse(w, "success", "")
 	}
 	if rmethod == "set" {
 		rpath := r.Form.Get("paths")
@@ -121,18 +93,10 @@ func ShareHandle(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(rpath, paths)
 		shared, err := pcsconfig.Config.ActiveUserBaiduPCS().ShareSet(paths, nil)
 		if err != nil {
-			response := &Response{
-				Code: -1,
-				Msg: err.Error(),
-			}
-			w.Write(response.JSON())
+			sendHttpErrorResponse(w, -1, err.Error())
 			return
 		}
-		response := &Response{
-			Code: 0,
-			Msg: shared.Link,
-		}
-		w.Write(response.JSON())
+		sendHttpResponse(w, shared.Link, "")
 	}
 }
 
@@ -184,11 +148,7 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 			Value: config.SaveDir(),
 			Desc: "下载文件的储存目录",
 		})
-		response := &Response{
-			Code: 0,
-			Data: configJsons,
-		}
-		w.Write(response.JSON())
+		sendHttpResponse(w, "", configJsons)
 	}
 	if rmethod == "set" {
 		enable_https := r.Form.Get("enable_https")
@@ -199,11 +159,7 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 		savedir := r.Form.Get("savedir")
 		_, err := ioutil.ReadDir(savedir)
 		if err != nil {
-			response := &Response{
-				Code: -1,
-				Msg: "输入的文件夹路径错误",
-			}
-			w.Write(response.JSON())
+			sendHttpErrorResponse(w, -1, "输入的文件夹路径错误")
 			return
 		}
 
@@ -243,16 +199,10 @@ func LocalFileHandle(w http.ResponseWriter, r *http.Request) {
 	rpath:= r.Form.Get("path")
 	files, err := ListLocalDir(rpath, "")
 	if err != nil {
-		w.Write((&Response{
-			Code: -1,
-			Msg:  err.Error(),
-		}).JSON())
+		sendHttpErrorResponse(w, -1, err.Error())
 		return
 	}
-	w.Write((&Response{
-		Code: 0,
-		Data: files,
-	}).JSON())
+	sendHttpResponse(w, "", files)
 }
 
 func FileOperationHandle(w http.ResponseWriter, r *http.Request) {
@@ -268,22 +218,13 @@ func FileOperationHandle(w http.ResponseWriter, r *http.Request) {
 	} else if (rmethod == "remove"){
 		err = pcscommand.RunRemove(paths...)
 	} else {
-		w.Write((&Response{
-			Code: -2,
-			Msg:  "method error",
-		}).JSON())
+		sendHttpErrorResponse(w, -2, "方法调用错误")
 	}
 	if err != nil {
-		w.Write((&Response{
-			Code: -1,
-			Msg:  err.Error(),
-		}).JSON())
+		sendHttpErrorResponse(w, -2, err.Error())
 		return
 	}
-	w.Write((&Response{
-		Code: 0,
-		Msg:  "success",
-	}).JSON())
+	sendHttpResponse(w, "success", "")
 }
 
 func MkdirHandle(w http.ResponseWriter, r *http.Request) {
@@ -291,16 +232,10 @@ func MkdirHandle(w http.ResponseWriter, r *http.Request) {
 	rpath := r.Form.Get("path")
 	err := pcscommand.RunMkdir(rpath)
 	if err != nil {
-		w.Write((&Response{
-			Code: 1,
-			Msg:  err.Error(),
-		}).JSON())
+		sendHttpErrorResponse(w, -1, err.Error())
 		return
 	}
-	w.Write((&Response{
-		Code: 0,
-		Msg:  "success",
-	}).JSON())
+	sendHttpResponse(w, "success", "")
 }
 
 func fileList(w http.ResponseWriter, r *http.Request) {
@@ -335,10 +270,7 @@ func fileList(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 
 	if err != nil {
-		w.Write((&Response{
-			Code: 1,
-			Msg:  err.Error(),
-		}).JSON())
+		sendHttpErrorResponse(w, -1, err.Error())
 		return
 	}
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"golang.org/x/net/websocket"
 	"fmt"
+	"net/http"
 )
 
 type pcsConfigJSON struct {
@@ -57,6 +58,27 @@ func sendErrorResponse(conn *websocket.Conn, rcode int, msg string) (err error){
 	return nil
 }
 
+func sendHttpErrorResponse(w http.ResponseWriter, rcode int, msg string) {
+	response := &Response{
+		Code: rcode,
+		Type: 0,
+		Status: 0,
+		Msg: msg,
+		Data: "",
+	}
+	w.Write(response.JSON())
+}
+
+func sendHttpResponse(w http.ResponseWriter, msg string, data interface{}) {
+	response := &Response{
+		Code: 0,
+		Type: 0,
+		Status: 0,
+		Msg: msg,
+		Data: data,
+	}
+	w.Write(response.JSON())
+}
 
 var (
 	NotLogin = -4

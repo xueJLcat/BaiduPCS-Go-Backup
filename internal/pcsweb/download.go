@@ -292,10 +292,7 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 		dlist.Append(ptask)
 
 		MsgBody = fmt.Sprintf("{\"LastID\": %d, \"path\": \"%s\"}", LastID, paths[k])
-		err = sendResponse(conn, 2, 1, "添加进任务队列", MsgBody)
-		if err != nil {
-			return err
-		}
+		sendResponse(conn, 2, 1, "添加进任务队列", MsgBody)
 	}
 
 	var (
@@ -505,21 +502,6 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 		tb.Render()
 	}
 	return
-}
-
-func sendResponse(conn *websocket.Conn, rtype int, rstatus int, msg string, data string) (err error){
-	response := &Response{
-		Code: 0,
-		Type: rtype,
-		Status: rstatus,
-		Msg: msg,
-		Data: data, //json.RawMessage(data),
-	}
-	if err = websocket.Message.Send(conn, string(response.JSON())); err != nil {
-		fmt.Println("send err:", err.Error())
-		return err
-	}
-	return nil
 }
 
 func getDownloadLinks(pcspath string) (dlinks []*url.URL) {

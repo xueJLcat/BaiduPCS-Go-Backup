@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"fmt"
-	"encoding/json"
 	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
 	"strings"
 	"strconv"
@@ -14,27 +13,7 @@ import (
 	"BaiduPCS-Go/pcsutil/converter"
 )
 
-type Response struct {
-	Code int         `json:"code"`
-	Type int         `json:"type"`
-	Status int       `json:"status"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
-}
 
-type pcsConfigJSON struct {
-	Name string `json:"name"`
-	EnName  string `json:"en_name"`
-	Value string `json:"value"`
-	Desc string `json:"desc"`
-}
-
-func (res *Response) JSON() (data []byte) {
-	var err error
-	data, err = json.Marshal(res)
-	checkErr(err)
-	return
-}
 
 func UserHandle(w http.ResponseWriter, r *http.Request) {
 	activeUser := pcsconfig.Config.ActiveUser()

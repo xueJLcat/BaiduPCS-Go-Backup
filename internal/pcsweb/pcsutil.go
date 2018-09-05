@@ -59,6 +59,38 @@ func QuotaHandle(w http.ResponseWriter, r *http.Request) {
 	w.Write(response.JSON())
 }
 
+func DownloadHandle(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	method := r.Form.Get("method")
+	id, _ := strconv.Atoi(r.Form.Get("id"))
+
+	dl := DownloaderMap[id]
+	if dl == nil {
+		response := &Response{
+			Code: -6,
+			Msg: "任务已经终结",
+		}
+		w.Write(response.JSON())
+		return
+	}
+
+	response := &Response{
+		Code: 0,
+		Msg: "success",
+	}
+	switch method {
+	case "pause":
+		dl.Pause()
+	case "resume":
+		dl.Resume()
+	case "cancel":
+		dl.Cancel()
+	case "status":
+		response.Data = dl.GetAllWorkersStatus()
+	}
+	w.Write(response.JSON())
+}
+
 func ShareHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	rmethod := r.Form.Get("method")

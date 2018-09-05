@@ -164,15 +164,18 @@ loginSuccess:
 }
 
 func WSDownload(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
-	paths, _ := rJson.Get("paths").StringArray()
-	fmt.Println(paths)
+	method, _ := rJson.Get("method").String()
 
-	options := &DownloadOptions{
-		IsTest: false,
-		IsOverwrite: true,
+	if method == "download" {
+		paths, _ := rJson.Get("paths").StringArray()
+		options := &DownloadOptions{
+			IsTest: false,
+			IsOverwrite: true,
+		}
+		RunDownload(conn, paths, options)
+		return
 	}
-
-	return RunDownload(conn, paths, options)
+	return
 }
 
 func WSUpload(conn *websocket.Conn, rJson *simplejson.Json) (err error) {

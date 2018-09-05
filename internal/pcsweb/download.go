@@ -62,6 +62,8 @@ type DownloadOptions struct {
 }
 
 var MsgBody string
+var LastID = 0
+var DownloaderMap = make(map[int]*downloader.Downloader)
 
 func downloadPrintFormat(load int) string {
 	if load <= 1 {
@@ -115,6 +117,7 @@ func download(conn *websocket.Conn, id int, downloadURL, savePath string, loadBa
 	exitChan = make(chan struct{})
 
 	download.OnExecute(func() {
+		DownloaderMap[id] = download
 		if downloadOptions.IsPrintStatus {
 			go func() {
 				for {
@@ -171,7 +174,7 @@ func download(conn *websocket.Conn, id int, downloadURL, savePath string, loadBa
 					timeUsed, leftStr,
 				)
 
-				MsgBody = fmt.Sprintf("{\"lastID\": %d, \"download_size\": \"%s\", \"total_size\": \"%s\", \"percent\": %.2f, \"speed\": \"%s\", \"avg_speed\": \"%s\", \"time_used\": \"%s\", \"time_left\": \"%s\"}", id,
+				MsgBody = fmt.Sprintf("{\"LastID\": %d, \"download_size\": \"%s\", \"total_size\": \"%s\", \"percent\": %.2f, \"speed\": \"%s\", \"avg_speed\": \"%s\", \"time_used\": \"%s\", \"time_left\": \"%s\"}", id,
 					converter.ConvertFileSize(downloaded, 2),
 					converter.ConvertFileSize(totalSize, 2),
 					float64(downloaded) / float64(totalSize) * 100,
@@ -186,13 +189,22 @@ func download(conn *websocket.Conn, id int, downloadURL, savePath string, loadBa
 		}
 	})
 	download.OnPause(func() {
-		fmt.Println("\nI am paused")
+		MsgBody = fmt.Sprintf("{\"LastID\": %d}", id)
+		sendResponse(conn, 2, 6, "任务暂停", MsgBody)
+		fmt.Println("\n任务暂停, ID:", id)
 	})
 	download.OnResume(func() {
-		fmt.Println("\nI am resume")
+		MsgBody = fmt.Sprintf("{\"LastID\": %d}", id)
+		sendResponse(conn, 2, 7, "任务恢复", MsgBody)
+		fmt.Println("\n任务恢复, ID:", id)
 	})
 	download.OnCancel(func() {
-		fmt.Println("\nI am cancel")
+		MsgBody = fmt.Sprintf("{\"LastID\": %d}", id)
+		sendResponse(conn, 2, 8, "任务取消", MsgBody)
+		fmt.Println("\n任务取消, ID:", id)
+	})
+	download.OnFinish(func() {
+		DownloaderMap[id] = nil
 	})
 
 	err = download.Execute()
@@ -217,8 +229,8 @@ func download(conn *websocket.Conn, id int, downloadURL, savePath string, loadBa
 	}
 
 	if !newCfg.IsTest {
-		MsgBody = fmt.Sprintf("{\"lastID\": %d, \"savePath\": \"%s\"}", id, savePath)
-		err = sendResponse(conn, 2, 6, "下载完成", MsgBody)
+		MsgBody = fmt.Sprintf("{\"LastID\": %d, \"savePath\": \"%s\"}", id, savePath)
+		err = sendResponse(conn, 2, 9, "下载完成", MsgBody)
 		if err != nil {
 			return err
 		}
@@ -257,24 +269,17 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 
 	cfg.MaxParallel = pcsconfig.AverageParallel(options.Parallel, options.Load)
 
-	paths, err = pcscommand.GetAllAbsPaths(paths...)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
 	var (
 		pcs    = pcsconfig.Config.ActiveUserBaiduPCS()
 		dlist  = lane.NewDeque()
-		lastID = 0
 	)
 
 
 	for k := range paths {
-		lastID++
+		LastID++
 		ptask := &dtask{
 			ListTask: ListTask{
-				ID:       lastID,
+				ID:       LastID,
 				MaxRetry: 3,
 			},
 			path: paths[k],
@@ -286,7 +291,7 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 		}
 		dlist.Append(ptask)
 
-		MsgBody = fmt.Sprintf("{\"lastID\": %d, \"path\": \"%s\"}", lastID, paths[k])
+		MsgBody = fmt.Sprintf("{\"LastID\": %d, \"path\": \"%s\"}", LastID, paths[k])
 		err = sendResponse(conn, 2, 1, "添加进任务队列", MsgBody)
 		if err != nil {
 			return err
@@ -308,11 +313,11 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 			// 不重试的情况
 			switch {
 			case strings.Compare(errManifest, "下载文件错误") == 0 && strings.Contains(err.Error(), StrDownloadInitError):
-				MsgBody = fmt.Sprintf("{\"lastID\": %d, \"errManifest\": \"%s\", \"error\": \"%s\"}", task.ID, errManifest, err)
+				MsgBody = fmt.Sprintf("{\"LastID\": %d, \"errManifest\": \"%s\", \"error\": \"%s\"}", task.ID, errManifest, err)
 				err = sendResponse(conn, 2, -1, "下载文件错误", MsgBody)
 				return
 			}
-			MsgBody = fmt.Sprintf("{\"lastID\": %d, \"errManifest\": \"%s\", \"error\": \"%s\", \"retry\": %d, \"max_retry\": %d}", task.ID, errManifest, err, task.retry, task.MaxRetry)
+			MsgBody = fmt.Sprintf("{\"LastID\": %d, \"errManifest\": \"%s\", \"error\": \"%s\", \"retry\": %d, \"max_retry\": %d}", task.ID, errManifest, err, task.retry, task.MaxRetry)
 			err = sendResponse(conn, 2, -2, "重试", MsgBody)
 
 			// 未达到失败重试最大次数, 将任务推送到队列末尾
@@ -348,7 +353,7 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 				task.downloadInfo, err = pcs.FilesDirectoriesMeta(task.path)
 				if err != nil {
 					// 不重试 获取路径信息错误
-					MsgBody = fmt.Sprintf("{\"lastID\": %d, \"error\": \"%s\"}", task.ID, err)
+					MsgBody = fmt.Sprintf("{\"LastID\": %d, \"error\": \"%s\"}", task.ID, err)
 					err = sendResponse(conn, 2, -3, "获取路径信息错误", MsgBody)
 					return
 				}
@@ -363,19 +368,19 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 				fileList, err := pcs.FilesDirectoriesList(task.path, baidupcs.DefaultOrderOptions)
 				if err != nil {
 					// 不重试 获取目录信息错误
-					MsgBody = fmt.Sprintf("{\"lastID\": %d, \"error\": \"%s\"}", task.ID, err)
+					MsgBody = fmt.Sprintf("{\"LastID\": %d, \"error\": \"%s\"}", task.ID, err)
 					sendResponse(conn, 2, -3, "获取目录信息错误", MsgBody)
 					return
 				}
 
-				MsgBody = fmt.Sprintf("{\"lastID\": %d, \"path\": \"%s\"}", task.ID, task.path)
+				MsgBody = fmt.Sprintf("{\"LastID\": %d, \"path\": \"%s\"}", task.ID, task.path)
 				sendResponse(conn, 2, 2, "将会使用实际的文件替代目录", MsgBody)
 
 				for k := range fileList {
-					lastID++
+					LastID++
 					subTask := &dtask{
 						ListTask: ListTask{
-							ID:       lastID,
+							ID:       LastID,
 							MaxRetry: 3,
 						},
 						path:         fileList[k].Path,
@@ -390,7 +395,7 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 
 					dlist.Append(subTask)
 
-					MsgBody = fmt.Sprintf("{\"lastID\": %d, \"path\": \"%s\"}", lastID, fileList[k].Path)
+					MsgBody = fmt.Sprintf("{\"LastID\": %d, \"path\": \"%s\"}", LastID, fileList[k].Path)
 					err := sendResponse(conn, 2, 1, "添加进任务队列", MsgBody)
 					if err != nil {
 						return
@@ -399,20 +404,20 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 				return
 			}
 
-			MsgBody = fmt.Sprintf("{\"lastID\": %d, \"path\": \"%s\"}", task.ID, task.path)
+			MsgBody = fmt.Sprintf("{\"LastID\": %d, \"path\": \"%s\"}", task.ID, task.path)
 			err := sendResponse(conn, 2, 3, "准备下载", MsgBody)
 			if err != nil {
 				return
 			}
 
 			if !options.IsTest && !options.IsOverwrite && fileExist(task.savePath) {
-				MsgBody = fmt.Sprintf("{\"lastID\": %d, \"savePath\": \"%s\"}", task.ID, task.savePath)
+				MsgBody = fmt.Sprintf("{\"LastID\": %d, \"savePath\": \"%s\"}", task.ID, task.savePath)
 				sendResponse(conn, 2, -4, "文件已经存在", MsgBody)
 				return
 			}
 
 			if !options.IsTest {
-				MsgBody = fmt.Sprintf("{\"lastID\": %d, \"savePath\": \"%s\"}", task.ID, task.savePath)
+				MsgBody = fmt.Sprintf("{\"LastID\": %d, \"savePath\": \"%s\"}", task.ID, task.savePath)
 				err := sendResponse(conn, 2, 4, "将会下载到路径", MsgBody)
 				if err != nil {
 					return

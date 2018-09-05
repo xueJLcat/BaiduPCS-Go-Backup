@@ -11,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"sort"
 )
 
 var (
@@ -237,22 +238,27 @@ func (mt *Monitor) RangeWorker(f func(key int, worker *Worker) bool) {
 //Pause 暂停所有的下载
 func (mt *Monitor) Pause() {
 	for k := range mt.workers {
-		if mt.workers[k] == nil {
+		tmp := k
+		if mt.workers[tmp] == nil {
 			continue
 		}
 
-		mt.workers[k].Pause()
+		go mt.workers[tmp].Pause()
+	}
+	for k := range mt.workers {
+		<-mt.workers[k].pauseChan
 	}
 }
 
 //Resume 恢复所有的下载
 func (mt *Monitor) Resume() {
 	for k := range mt.workers {
-		if mt.workers[k] == nil {
+		tmp := k
+		if mt.workers[tmp] == nil {
 			continue
 		}
 
-		mt.workers[k].Resume()
+		go mt.workers[tmp].Resume()
 	}
 }
 
@@ -456,4 +462,47 @@ func (mt *Monitor) ShowWorkers() string {
 	})
 	tb.Render()
 	return "\n" + builder.String()
+}
+
+type WorkersStruct struct {
+	ID     int       `json:"id"`
+	Status string    `json:"status"`
+	Range  string    `json:"range"`
+	Left   string    `json:"left"`
+	Speed  int       `json:"speed"`
+	Error  string    `json:"error"`
+}
+
+type WorkersStructs []WorkersStruct
+
+func (wks WorkersStructs) Len() int {
+	return len(wks)
+}
+
+func (wks WorkersStructs) Less(i, j int) bool {
+	return wks[i].Speed > wks[j].Speed
+}
+
+func (wks WorkersStructs) Swap(i, j int) {
+	temp := wks[i]
+	wks[i] = wks[j]
+	wks[j] = temp
+}
+
+func (mt *Monitor) ShowWorkersStruct() WorkersStructs {
+	wks := make(WorkersStructs, 0, 1000)
+	mt.RangeWorker(func(key int, worker *Worker) bool {
+		wrange := worker.GetRange()
+		wks = append(wks, WorkersStruct{
+			worker.ID(),
+			worker.GetStatus().StatusText(),
+			wrange.String(),
+			strconv.FormatInt(wrange.Len(), 10),
+			int(worker.GetSpeedsPerSecond()),
+			fmt.Sprint(worker.Err()),
+		})
+		return true
+	})
+	sort.Sort(wks)
+	return wks
 }

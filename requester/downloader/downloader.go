@@ -316,8 +316,8 @@ func (der *Downloader) Pause() {
 	if der.monitor == nil {
 		return
 	}
-	pcsutil.Trigger(der.onPauseEvent)
 	der.monitor.Pause()
+	pcsutil.Trigger(der.onPauseEvent)
 }
 
 //Resume 恢复
@@ -325,8 +325,8 @@ func (der *Downloader) Resume() {
 	if der.monitor == nil {
 		return
 	}
-	pcsutil.Trigger(der.onResumeEvent)
 	der.monitor.Resume()
+	pcsutil.Trigger(der.onResumeEvent)
 }
 
 //Cancel 取消
@@ -344,6 +344,13 @@ func (der *Downloader) PrintAllWorkers() {
 		return
 	}
 	fmt.Println(der.monitor.ShowWorkers())
+}
+
+func (der *Downloader) GetAllWorkersStatus() WorkersStructs {
+	if der.monitor == nil {
+		return nil
+	}
+	return der.monitor.ShowWorkersStruct()
 }
 
 //OnExecute 设置开始下载事件

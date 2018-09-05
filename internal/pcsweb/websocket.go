@@ -6,7 +6,6 @@ import (
 	"github.com/bitly/go-simplejson"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	"github.com/iikira/Baidu-Login"
-	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
 )
 
 
@@ -18,7 +17,7 @@ func getValueFromWSJson(conn *websocket.Conn, key string) (resString string, err
 	}
 	rJson, err := simplejson.NewJson([]byte(reply))
 	if err != nil {
-		fmt.Println("receive err:", err.Error())
+		fmt.Println("create json error:", err.Error())
 		return
 	}
 
@@ -27,18 +26,18 @@ func getValueFromWSJson(conn *websocket.Conn, key string) (resString string, err
 }
 
 func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
-	vcode := ""
-	vcodestr := ""
+	var (
+		vcode string
+		vcodestr string
+		BDUSS, PToken, SToken string
+	)
 
 	username, _ := rJson.Get("username").String()
 	password, _ := rJson.Get("password").String()
-	fmt.Println(username, password)
 
 	bc := baidulogin.NewBaiduClinet()
-	var BDUSS, PToken, SToken string
 	for i := 0; i < 10; i++ {
 		lj := bc.BaiduLogin(username, password, vcode, vcodestr)
-		fmt.Println(lj)
 
 		switch lj.ErrInfo.No {
 		case "0": // 登录成功, 退出循环
@@ -46,46 +45,20 @@ func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 			goto loginSuccess
 		case "400023", "400101": // 需要验证手机或邮箱
 			verifyTypes := fmt.Sprintf("[{\"label\": \"mobile %s\", \"value\": \"mobile\"}, {\"label\": \"email %s\", \"value\": \"email\"}]", lj.Data.Phone, lj.Data.Email)
-			response := &Response{
-				Code: 0,
-				Type: 1,
-				Status: 2,
-				Data: verifyTypes,
-			}
-			if err = websocket.Message.Send(conn, string(response.JSON())); err != nil {
-				fmt.Println("send err:", err.Error())
-				return err
-			}
+			sendResponse(conn, 1, 2, "需要验证手机或邮箱", verifyTypes)
 
-			verifyType, err := getValueFromWSJson(conn, "verify_type")
-			if err != nil {
-				fmt.Println("receive err:",err.Error())
-				return err
-			}
-			fmt.Println(verifyType)
+			verifyType, _ := getValueFromWSJson(conn, "verify_type")
 
 			msg := bc.SendCodeToUser(verifyType, lj.Data.Token) // 发送验证码
-			if err = websocket.Message.Send(conn, "{\"code\": 0, \"type\": 1, \"status\": 3}"); err != nil {
-				fmt.Println("send err:", err.Error())
-				return err
-			}
+			sendResponse(conn, 1, 3, "发送验证码", "")
 			fmt.Printf("消息: %s\n\n", msg)
 
 			for et := 0; et < 5; et++ {
 				vcode, err = getValueFromWSJson(conn, "verify_code")
-				if err != nil {
-					fmt.Println("receive err:",err.Error())
-					return err
-				}
-				fmt.Println(vcode)
-
 				nlj := bc.VerifyCode(verifyType, lj.Data.Token, vcode, lj.Data.U)
 				if nlj.ErrInfo.No != "0" {
-					errMsg := fmt.Sprintf("{\"code\": 0, \"type\": 1, \"status\": 4, \"error_time\":%d, \"error_msg\":\"%s\"}", et+1, nlj.ErrInfo.Msg)
-					if err = websocket.Message.Send(conn, errMsg); err != nil {
-						fmt.Println("send err:", err.Error())
-						return err
-					}
+					errMsg := fmt.Sprintf("{\"error_time\":%d, \"error_msg\":\"%s\"}", et+1, nlj.ErrInfo.Msg)
+					sendResponse(conn, 1, 4, "验证码错误", errMsg)
 					continue
 				}
 				// 登录成功
@@ -93,20 +66,10 @@ func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 				goto loginSuccess
 			}
 		case "400038": //账号密码错误
-			errMsg := fmt.Sprintf("{\"code\": 0, \"type\": 1, \"status\": 5, \"msg\":\"account or password error\"}")
-			if err = websocket.Message.Send(conn, errMsg); err != nil {
-				fmt.Println("send err:", err.Error())
-				return err
-			}
-			return err
+			sendResponse(conn, 1, 5, "账号或密码错误", "")
 		case "500001", "500002": // 验证码
-			fmt.Printf("\n%s\n", lj.ErrInfo.Msg)
 			if lj.ErrInfo.No == "500002"{
-				errMsg := fmt.Sprintf("{\"code\": 0, \"type\": 1, \"status\": 4}")
-				if err = websocket.Message.Send(conn, errMsg); err != nil {
-					fmt.Println("send err:", err.Error())
-					return err
-				}
+				sendResponse(conn, 1, 4, "验证码错误", "")
 			}
 			vcodestr = lj.Data.CodeString
 			if vcodestr == "" {
@@ -115,45 +78,24 @@ func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 			}
 
 			verifyImgURL := "https://wappass.baidu.com/cgi-bin/genimage?" + vcodestr
+			sendResponse(conn, 1, 6, verifyImgURL, "")
 
-			errMsg := fmt.Sprintf("{\"code\": 0, \"type\": 1, \"status\": 6, \"img_url\":\"%s\"}", verifyImgURL)
-			if err = websocket.Message.Send(conn, errMsg); err != nil {
-				fmt.Println("send err:", err.Error())
-				return err
-			}
-
-			vcode, err = getValueFromWSJson(conn, "verify_code")
-			if err != nil {
-				fmt.Println("receive err:",err.Error())
-				return err
-			}
-			fmt.Println(vcode)
+			vcode, _ = getValueFromWSJson(conn, "verify_code")
 			continue
 		default:
 			err = fmt.Errorf("错误代码: %s, 消息: %s", lj.ErrInfo.No, lj.ErrInfo.Msg)
-			response := &Response{
-				Code: -1,
-				Msg: err.Error(),
-			}
-			if err = websocket.Message.Send(conn, string(response.JSON())); err != nil {
-				fmt.Println("send err:", err.Error())
-			}
+			sendErrorResponse(conn, -1, err.Error())
 			return err
 		}
 	}
 
 loginSuccess:
-	fmt.Println("loginSuccess", BDUSS, PToken, SToken)
 	baidu, err := pcsconfig.Config.SetupUserByBDUSS(BDUSS, PToken, SToken)
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println("百度帐号登录成功:", baidu.Name)
-	successMsg := fmt.Sprintf("{\"code\": 0, \"type\": 1, \"status\": 7, \"username\":\"%s\"}", baidu.Name)
-	if err = websocket.Message.Send(conn, successMsg); err != nil {
-		fmt.Println("send err:", err.Error())
-		return err
-	}
+	sendResponse(conn, 1, 7, baidu.Name, "")
 
 	err = pcsconfig.Config.Save()
 	if err != nil {
@@ -181,24 +123,18 @@ func WSDownload(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 func WSUpload(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 	paths, _ := rJson.Get("paths").StringArray()
 	tpath, _ := rJson.Get("tpath").String()
-	fmt.Println(paths, tpath)
 
-	//options := &DownloadOptions{
-	//	IsTest: false,
-	//	IsOverwrite: true,
-	//}
-
-	pcscommand.RunUpload(paths, tpath, nil)
+	RunUpload(conn, paths, tpath, nil)
 	return
 }
 
 func WSHandler(conn *websocket.Conn){
-	fmt.Printf("a new ws conn: %s->%s\n", conn.RemoteAddr().String(), conn.LocalAddr().String())
+	fmt.Printf("Websocket新建连接: %s->%s\n", conn.RemoteAddr().String(), conn.LocalAddr().String())
 
 	for {
 		var reply string
 		if err := websocket.Message.Receive(conn, &reply); err != nil {
-			fmt.Println("receive err:", err.Error())
+			fmt.Println("Websocket连接断开:", err.Error())
 			return
 		}
 		rJson, err := simplejson.NewJson([]byte(reply))

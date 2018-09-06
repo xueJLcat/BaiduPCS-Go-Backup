@@ -76,40 +76,35 @@ func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *
 		globedPathDir string
 		subSavePath   string
 	)
-
 	for k := range localPaths {
-		globedPaths, _ := filepath.Glob(localPaths[k])
-		for k2 := range globedPaths {
-			walkedFiles, _ := pcsutil.WalkDir(globedPaths[k2], "")
-			for k3 := range walkedFiles {
-				// 针对 windows 的目录处理
-				if os.PathSeparator == '\\' {
-					walkedFiles[k3] = pcsutil.ConvertToUnixPathSeparator(walkedFiles[k3])
-					globedPathDir = pcsutil.ConvertToUnixPathSeparator(filepath.Dir(globedPaths[k2]))
-				} else {
-					globedPathDir = filepath.Dir(globedPaths[k2])
-				}
-
-				// 避免去除文件名开头的"."
-				if globedPathDir == "." {
-					globedPathDir = ""
-				}
-
-				subSavePath = strings.TrimPrefix(walkedFiles[k3], globedPathDir)
-
-				lastID++
-				ulist.PushBack(&utask{
-					ListTask: ListTask{
-						ID:       lastID,
-						MaxRetry: 3,
-					},
-					uploadInfo: checksum.NewLocalFileInfo(walkedFiles[k3], int(requiredSliceSize)),
-					savePath:   path.Clean(savePath + "/" + subSavePath),
-				})
-
-				MsgBody = fmt.Sprintf("{\"LastID\": %d, \"path\": \"%s\"}", lastID, walkedFiles[k3])
-				sendResponse(conn, 3, 1, "添加进任务队列", MsgBody)
+		walkedFiles, _ := pcsutil.WalkDir(localPaths[k], "")
+		for k1 := range walkedFiles {
+			// 针对 windows 的目录处理
+			if os.PathSeparator == '\\' {
+				walkedFiles[k1] = pcsutil.ConvertToUnixPathSeparator(walkedFiles[k1])
+				globedPathDir = pcsutil.ConvertToUnixPathSeparator(filepath.Dir(localPaths[k]))
+			} else {
+				globedPathDir = filepath.Dir(localPaths[k])
 			}
+
+			// 避免去除文件名开头的"."
+			if globedPathDir == "." {
+				globedPathDir = ""
+			}
+
+			subSavePath = strings.TrimPrefix(walkedFiles[k1], globedPathDir)
+			lastID++
+			ulist.PushBack(&utask{
+				ListTask: ListTask{
+					ID:       lastID,
+					MaxRetry: 3,
+				},
+				uploadInfo: checksum.NewLocalFileInfo(walkedFiles[k1], int(requiredSliceSize)),
+				savePath:   path.Clean(savePath + "/" + subSavePath),
+			})
+
+			MsgBody = fmt.Sprintf("{\"LastID\": %d, \"path\": \"%s\"}", lastID, walkedFiles[k1])
+			sendResponse(conn, 3, 1, "添加进任务队列", MsgBody)
 		}
 	}
 

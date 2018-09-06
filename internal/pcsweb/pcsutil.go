@@ -58,6 +58,18 @@ func DownloadHandle(w http.ResponseWriter, r *http.Request) {
 	w.Write(response.JSON())
 }
 
+func SearchHandle(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	tpath := r.Form.Get("tpath")
+	keyword := r.Form.Get("keyword")
+	files, err := pcsconfig.Config.ActiveUserBaiduPCS().Search(tpath, keyword, true)
+	if err != nil {
+		sendHttpErrorResponse(w, -1, err.Error())
+		return
+	}
+	sendHttpResponse(w, "", files)
+}
+
 func ShareHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	rmethod := r.Form.Get("method")

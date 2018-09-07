@@ -4,9 +4,9 @@ import (
 	"html/template"
 	"io/ioutil"
 	"strings"
-	"path/filepath"
-	"BaiduPCS-Go/pcsutil/converter"
 	"sort"
+	"path/filepath"
+	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
 )
 
 type FileDesc struct {

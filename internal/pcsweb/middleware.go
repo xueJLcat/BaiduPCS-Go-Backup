@@ -1,9 +1,9 @@
 package pcsweb
 
 import (
+	"fmt"
 	"net/http"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
-	"fmt"
 )
 
 func middleware(next http.HandlerFunc) http.HandlerFunc {

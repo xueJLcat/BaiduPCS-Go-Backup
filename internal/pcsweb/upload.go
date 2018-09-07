@@ -3,15 +3,12 @@ package pcsweb
 import (
 	"fmt"
 	"encoding/hex"
-	"github.com/iikira/BaiduPCS-Go/baidupcs/pcserror"
 	"time"
-	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	"container/list"
 	"path/filepath"
 	"os"
 	"strings"
 	"path"
-	"github.com/iikira/BaiduPCS-Go/internal/pcsfunctions/pcsupload"
 	"bytes"
 	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
 	"github.com/iikira/BaiduPCS-Go/baidupcs"
@@ -21,6 +18,9 @@ import (
 	"github.com/iikira/BaiduPCS-Go/requester/rio"
 	"github.com/iikira/BaiduPCS-Go/pcsutil/delay"
 	"github.com/iikira/BaiduPCS-Go/pcsutil"
+	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
+	"github.com/iikira/BaiduPCS-Go/baidupcs/pcserror"
+	"github.com/iikira/BaiduPCS-Go/internal/pcsfunctions/pcsupload"
 	"golang.org/x/net/websocket"
 )
 

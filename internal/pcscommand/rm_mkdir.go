@@ -10,7 +10,7 @@ import (
 
 // RunRemove 执行 批量删除文件/目录
 func RunRemove(paths ...string) (err error) {
-	paths, err = GetAllAbsPaths(paths...)
+	paths, err = getAllAbsPaths(paths...)
 	if err != nil {
 		fmt.Println(err)
 		return

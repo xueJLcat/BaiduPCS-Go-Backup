@@ -19,7 +19,7 @@ type (
 
 // RunExport 执行导出文件和目录
 func RunExport(pcspaths []string, rootPath string) {
-	pcspaths, err := GetAllAbsPaths(pcspaths...)
+	pcspaths, err := getAllAbsPaths(pcspaths...)
 	if err != nil {
 		fmt.Println(err)
 		return

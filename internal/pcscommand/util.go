@@ -23,8 +23,8 @@ type ListTask struct {
 	retry    int // 任务失败的重试次数
 }
 
-// GetAllAbsPaths 获取所有绝对路径
-func GetAllAbsPaths(paths ...string) (absPaths []string, err error) {
+// getAllAbsPaths 获取所有绝对路径
+func getAllAbsPaths(paths ...string) (absPaths []string, err error) {
 	for k := range paths {
 		p, err := parsePath(paths[k])
 		if err != nil {

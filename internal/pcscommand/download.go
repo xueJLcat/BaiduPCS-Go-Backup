@@ -252,7 +252,7 @@ func RunDownload(paths []string, options *DownloadOptions) {
 
 	cfg.MaxParallel = pcsconfig.AverageParallel(options.Parallel, options.Load)
 
-	paths, err := GetAllAbsPaths(paths...)
+	paths, err := getAllAbsPaths(paths...)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -539,7 +539,7 @@ func RunDownload(paths []string, options *DownloadOptions) {
 
 // RunLocateDownload 执行获取直链
 func RunLocateDownload(pcspaths ...string) {
-	absPaths, err := GetAllAbsPaths(pcspaths...)
+	absPaths, err := getAllAbsPaths(pcspaths...)
 	if err != nil {
 		fmt.Println(err)
 		return

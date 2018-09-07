@@ -1,8 +1,8 @@
 package pcsweb
 
 import (
-	"golang.org/x/net/websocket"
 	"fmt"
+	"golang.org/x/net/websocket"
 	"github.com/bitly/go-simplejson"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	"github.com/iikira/Baidu-Login"

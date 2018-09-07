@@ -1,16 +1,16 @@
 package pcsweb
 
 import (
-	"github.com/iikira/BaiduPCS-Go/baidupcs"
-	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	"io"
 	"net/http"
 	"fmt"
-	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
 	"strings"
 	"strconv"
 	"io/ioutil"
 	"BaiduPCS-Go/pcsutil/converter"
+	"github.com/iikira/BaiduPCS-Go/baidupcs"
+	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
+	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
 )
 
 

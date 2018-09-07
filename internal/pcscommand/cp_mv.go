@@ -27,7 +27,7 @@ func runCpMvOp(op string, paths ...string) (err error) {
 
 	froms, to := cpmvParsePath(paths...) // 分割
 
-	froms, err = GetAllAbsPaths(froms...)
+	froms, err = getAllAbsPaths(froms...)
 	if err != nil {
 		fmt.Printf("解析路径出错, %s\n", err)
 		return
@@ -38,7 +38,7 @@ func runCpMvOp(op string, paths ...string) (err error) {
 
 	// 尝试匹配
 	if patternRE.MatchString(to) {
-		tos, _ := GetAllAbsPaths(to)
+		tos, _ := getAllAbsPaths(to)
 
 		switch len(tos) {
 		case 0:

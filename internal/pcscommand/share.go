@@ -16,7 +16,7 @@ import (
 
 // RunShareSet 执行分享
 func RunShareSet(paths []string, option *baidupcs.ShareOption) {
-	pcspaths, err := GetAllAbsPaths(paths...)
+	pcspaths, err := getAllAbsPaths(paths...)
 	if err != nil {
 		fmt.Println(err)
 		return

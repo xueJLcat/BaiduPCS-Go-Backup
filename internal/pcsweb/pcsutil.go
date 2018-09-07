@@ -58,6 +58,46 @@ func DownloadHandle(w http.ResponseWriter, r *http.Request) {
 	w.Write(response.JSON())
 }
 
+func OfflineDownloadHandle(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	method := r.Form.Get("method")
+
+	switch method {
+	case "list":
+		cl, err := pcsconfig.Config.ActiveUserBaiduPCS().CloudDlListTask()
+		if err != nil {
+			sendHttpErrorResponse(w, -1, err.Error())
+			return
+		}
+		sendHttpResponse(w, "", cl)
+	case "delete":
+		id, _ := strconv.Atoi(r.Form.Get("id"))
+		err := pcsconfig.Config.ActiveUserBaiduPCS().CloudDlDeleteTask(int64(id))
+		if err != nil {
+			sendHttpErrorResponse(w, -1, err.Error())
+			return
+		}
+		sendHttpResponse(w, "", "")
+	case "cancel":
+		id, _ := strconv.Atoi(r.Form.Get("id"))
+		err := pcsconfig.Config.ActiveUserBaiduPCS().CloudDlCancelTask(int64(id))
+		if err != nil {
+			sendHttpErrorResponse(w, -1, err.Error())
+			return
+		}
+		sendHttpResponse(w, "", "")
+	case "add":
+		link := r.Form.Get("link")
+		tpath := r.Form.Get("tpath")
+		taskid, err := pcsconfig.Config.ActiveUserBaiduPCS().CloudDlAddTask(link, tpath)
+		if err != nil {
+			sendHttpErrorResponse(w, -1, err.Error())
+			return
+		}
+		sendHttpResponse(w, strconv.Itoa(int(taskid)), "")
+	}
+}
+
 func SearchHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	tpath := r.Form.Get("tpath")

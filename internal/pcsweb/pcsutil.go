@@ -11,6 +11,8 @@ import (
 	"github.com/iikira/BaiduPCS-Go/baidupcs"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
+	"os/exec"
+	"runtime"
 )
 
 
@@ -248,13 +250,33 @@ func LogoutHandle(w http.ResponseWriter, r *http.Request) {
 
 func LocalFileHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+	rmethod := r.Form.Get("method")
 	rpath:= r.Form.Get("path")
-	files, err := ListLocalDir(rpath, "")
-	if err != nil {
-		sendHttpErrorResponse(w, -1, err.Error())
+	if (rmethod == "list"){
+		files, err := ListLocalDir(rpath, "")
+		if err != nil {
+			sendHttpErrorResponse(w, -1, err.Error())
+			return
+		}
+		sendHttpResponse(w, "", files)
 		return
 	}
-	sendHttpResponse(w, "", files)
+	if (rmethod == "open_folder"){
+		if runtime.GOOS == "windows"{
+			tmp := strings.Split(rpath, "/")
+			path := strings.Join(tmp[:len(tmp) - 1], "\\")
+			cmd := exec.Command("explorer", path)
+			cmd.Run()
+			sendHttpResponse(w, "", "")
+		} else if runtime.GOOS == "linux"{
+			cmd := exec.Command("nautilus", rpath)
+			cmd.Run()
+			sendHttpResponse(w, "", "")
+		} else {
+			sendHttpErrorResponse(w, -1,"我们暂时只支持 Windows 和 Linux")
+		}
+		return
+	}
 }
 
 func FileOperationHandle(w http.ResponseWriter, r *http.Request) {

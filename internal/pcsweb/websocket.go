@@ -129,7 +129,7 @@ func WSUpload(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 }
 
 func WSHandler(conn *websocket.Conn){
-	fmt.Printf("Websocket新建连接: %s->%s\n", conn.RemoteAddr().String(), conn.LocalAddr().String())
+	fmt.Printf("Websocket新建连接: %s -> %s\n", conn.RemoteAddr().String(), conn.LocalAddr().String())
 
 	for {
 		var reply string

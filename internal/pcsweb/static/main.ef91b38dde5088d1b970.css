@@ -28,14 +28,18 @@ html, body, #app, .layout, .ivu-layout {
 }
 .layout-logo[data-v-5649043e] {
   height: 100%;
-  border-radius: 3px;
-  float: left;
-  position: relative;
 }
-.layout-nav[data-v-5649043e] {
-  width: 560px;
-  margin: 0 auto;
-  margin-right: 20px;
+.ivu-menu-horizontal[data-v-5649043e] {
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-pack: justify;
+      justify-content: space-between;
+  -ms-flex-align: center;
+      align-items: center;
+}
+.ivu-layout-header[data-v-5649043e] {
+  height: 60px;
+  line-height: 60px;
 }
 .login[data-v-37dc14c8]{width:100vw;height:100vh;background-size:cover;background-position:50%;position:relative}.login-con[data-v-37dc14c8]{position:absolute;right:160px;top:50%;transform:translateY(-60%);width:300px}.form-con[data-v-37dc14c8]{padding:10px 0 0}.form-con>[data-v-37dc14c8]{margin-bottom:10px}.particles-background[data-v-37dc14c8]{background:url(/static/c64d8255b1259bda3e716f464d2062d4.jpg) 50%;height:100vh;overflow:hidden}
 .icons-item[data-v-10d13f4a] {

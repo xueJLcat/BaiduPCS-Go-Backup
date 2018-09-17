@@ -262,18 +262,24 @@ func LocalFileHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if (rmethod == "open_folder"){
+		tmp := strings.Split(rpath, "/")
 		if runtime.GOOS == "windows"{
-			tmp := strings.Split(rpath, "/")
 			path := strings.Join(tmp[:len(tmp) - 1], "\\")
 			cmd := exec.Command("explorer", path)
 			cmd.Run()
 			sendHttpResponse(w, "", "")
 		} else if runtime.GOOS == "linux"{
-			cmd := exec.Command("nautilus", rpath)
+			path := strings.Join(tmp[:len(tmp) - 1], "/")
+			cmd := exec.Command("nautilus", path)
+			cmd.Run()
+			sendHttpResponse(w, "", "")
+		} else if runtime.GOOS == "darwin"{
+			path := strings.Join(tmp[:len(tmp) - 1], "/")
+			cmd := exec.Command("open", path)
 			cmd.Run()
 			sendHttpResponse(w, "", "")
 		} else {
-			sendHttpErrorResponse(w, -1,"我们暂时只支持 Windows 和 Linux")
+			sendHttpErrorResponse(w, -1,"不支持的系统")
 		}
 		return
 	}

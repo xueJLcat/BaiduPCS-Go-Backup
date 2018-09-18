@@ -199,7 +199,7 @@ func (c *PCSConfig) loadConfigFromFile() (err error) {
 }
 
 func (c *PCSConfig) initDefaultConfig() {
-	c.appID = 260149
+	c.appID = 266719
 	c.cacheSize = 30000
 	c.maxParallel = 100
 	c.maxDownloadLoad = 1

@@ -13,9 +13,12 @@ import (
 	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
 	"os/exec"
 	"runtime"
+	"github.com/iikira/BaiduPCS-Go/pcsverbose"
 )
 
-
+var(
+	pcsCommandVerbose = pcsverbose.New("PCSCOMMAND")
+)
 
 func UserHandle(w http.ResponseWriter, r *http.Request) {
 	activeUser := pcsconfig.Config.ActiveUser()
@@ -29,6 +32,7 @@ func QuotaHandle(w http.ResponseWriter, r *http.Request) {
 		converter.ConvertFileSize(used, 2),
 		converter.ConvertFileSize(quota - used, 2),
 		100 * float64(used) / float64(quota))
+	pcsCommandVerbose.Info(quotaMsg)
 	sendHttpResponse(w, "", quotaMsg)
 }
 
@@ -36,6 +40,7 @@ func DownloadHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	method := r.Form.Get("method")
 	id, _ := strconv.Atoi(r.Form.Get("id"))
+	pcsCommandVerbose.Info("下载管理:" + method + ", " + r.Form.Get("id"))
 
 	dl := DownloaderMap[id]
 	if dl == nil {
@@ -63,6 +68,7 @@ func DownloadHandle(w http.ResponseWriter, r *http.Request) {
 func OfflineDownloadHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	method := r.Form.Get("method")
+	pcsCommandVerbose.Info("离线下载:" + method)
 
 	switch method {
 	case "list":
@@ -104,6 +110,8 @@ func SearchHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	tpath := r.Form.Get("tpath")
 	keyword := r.Form.Get("keyword")
+	pcsCommandVerbose.Info("搜索:" + tpath + " " + keyword)
+
 	files, err := pcsconfig.Config.ActiveUserBaiduPCS().Search(tpath, keyword, true)
 	if err != nil {
 		sendHttpErrorResponse(w, -1, err.Error())
@@ -115,6 +123,8 @@ func SearchHandle(w http.ResponseWriter, r *http.Request) {
 func ShareHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	rmethod := r.Form.Get("method")
+	pcsCommandVerbose.Info(rmethod)
+
 	if rmethod == "list" {
 		records, err := pcsconfig.Config.ActiveUserBaiduPCS().ShareList(1)
 		if err != nil {
@@ -157,6 +167,8 @@ func ShareHandle(w http.ResponseWriter, r *http.Request) {
 func SettingHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	rmethod := r.Form.Get("method")
+	pcsCommandVerbose.Info("设置:" + rmethod)
+
 	config := pcsconfig.Config
 	if rmethod == "get" {
 		configJsons := make([]pcsConfigJSON, 0, 10)
@@ -205,6 +217,7 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 		sendHttpResponse(w, "", configJsons)
 	}
 	if rmethod == "set" {
+		appid := r.Form.Get("appid")
 		enable_https := r.Form.Get("enable_https")
 		user_agent := r.Form.Get("user_agent")
 		cache_size := r.Form.Get("cache_size")
@@ -217,10 +230,12 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		int_value, _ :=strconv.Atoi(appid)
+		config.SetAppID(int_value)
 		bool_value, _ := strconv.ParseBool(enable_https)
 		config.SetEnableHTTPS(bool_value)
 		config.SetUserAgent(user_agent)
-		int_value, _ :=strconv.Atoi(cache_size)
+		int_value, _ =strconv.Atoi(cache_size)
 		config.SetCacheSize(int_value)
 		int_value, _ = strconv.Atoi(max_parallel)
 		config.SetMaxParallel(int_value)
@@ -252,6 +267,8 @@ func LocalFileHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	rmethod := r.Form.Get("method")
 	rpath:= r.Form.Get("path")
+	pcsCommandVerbose.Info("本地文件操作:" + rmethod + " " + rpath)
+
 	if (rmethod == "list"){
 		files, err := ListLocalDir(rpath, "")
 		if err != nil {
@@ -289,6 +306,8 @@ func FileOperationHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	rmethod := r.Form.Get("method")
 	rpaths:= r.Form.Get("paths")
+	pcsCommandVerbose.Info("远程文件操作:" + rmethod + " " + rpaths)
+
 	paths := strings.Split(rpaths, "|")
 	var err error
 	if (rmethod == "copy"){
@@ -310,6 +329,8 @@ func FileOperationHandle(w http.ResponseWriter, r *http.Request) {
 func MkdirHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	rpath := r.Form.Get("path")
+	pcsCommandVerbose.Info("远程新建文件夹:" + rpath)
+
 	err := pcscommand.RunMkdir(rpath)
 	if err != nil {
 		sendHttpErrorResponse(w, -1, err.Error())
@@ -324,6 +345,8 @@ func fileList(w http.ResponseWriter, r *http.Request) {
 	fpath := r.Form.Get("path")
 	orderBy := r.Form.Get("order_by")
 	order := r.Form.Get("order")
+	pcsCommandVerbose.Info("获取目录:" + fpath + " " + orderBy + " " + order)
+
 	orderOptions := &baidupcs.OrderOptions{}
 	switch {
 	case order == "asc":

@@ -18,7 +18,7 @@ import (
 
 var(
 	pcsCommandVerbose = pcsverbose.New("PCSCOMMAND")
-	Version = "3.5.6"
+	Version = "3.5.7"
 )
 
 func UserHandle(w http.ResponseWriter, r *http.Request) {
@@ -246,13 +246,7 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 		config.Save()
 	}
 	if rmethod == "update" {
-		var goarch string
-		if runtime.GOARCH == "386"{
-			goarch = "86"
-		} else if runtime.GOARCH == "amd64"{
-			goarch = "64"
-		}
-		url := "http://www.zoranjojo.top:9925/api/v1/update?goos=" + runtime.GOOS + "&goarch=" + goarch + "&version=" + Version
+		url := "http://www.zoranjojo.top:9925/api/v1/update?goos=" + runtime.GOOS + "&goarch=" + runtime.GOARCH + "&version=" + Version
 		resp, err := http.Get(url)
 		if err != nil {
 			sendHttpErrorResponse(w, -1, "查找版本更新失败")

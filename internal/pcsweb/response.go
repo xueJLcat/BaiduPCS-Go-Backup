@@ -3,8 +3,8 @@ package pcsweb
 import (
 	"encoding/json"
 	"golang.org/x/net/websocket"
-	"fmt"
 	"net/http"
+	"github.com/iikira/BaiduPCS-Go/pcsverbose"
 )
 
 type pcsConfigJSON struct {
@@ -37,7 +37,7 @@ func sendResponse(conn *websocket.Conn, rtype int, rstatus int, msg string, data
 		Data: data,
 	}
 	if err = websocket.Message.Send(conn, string(response.JSON())); err != nil {
-		fmt.Println("send err:", err.Error())
+		pcsverbose.Verbosef("websocket send error: %s\n", err.Error())
 		return err
 	}
 	return nil
@@ -52,7 +52,7 @@ func sendErrorResponse(conn *websocket.Conn, rcode int, msg string) (err error){
 		Data: "",
 	}
 	if err = websocket.Message.Send(conn, string(response.JSON())); err != nil {
-		fmt.Println("send err:", err.Error())
+		pcsverbose.Verbosef("websocket send error: %s\n", err.Error())
 		return err
 	}
 	return nil

@@ -135,6 +135,7 @@ func WSHandler(conn *websocket.Conn){
 		var reply string
 		if err := websocket.Message.Receive(conn, &reply); err != nil {
 			fmt.Println("Websocket连接断开:", err.Error())
+			conn.Close()
 			return
 		}
 		rJson, err := simplejson.NewJson([]byte(reply))

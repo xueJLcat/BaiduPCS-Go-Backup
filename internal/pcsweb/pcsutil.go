@@ -7,17 +7,18 @@ import (
 	"strings"
 	"strconv"
 	"io/ioutil"
+	"os/exec"
+	"runtime"
 	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
 	"github.com/iikira/BaiduPCS-Go/baidupcs"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
-	"os/exec"
-	"runtime"
 	"github.com/iikira/BaiduPCS-Go/pcsverbose"
 )
 
 var(
 	pcsCommandVerbose = pcsverbose.New("PCSCOMMAND")
+	Version = "3.5.6"
 )
 
 func UserHandle(w http.ResponseWriter, r *http.Request) {
@@ -243,6 +244,42 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 		config.SetMaxDownloadLoad(int_value)
 		config.SetSaveDir(savedir)
 		config.Save()
+	}
+	if rmethod == "update" {
+		var goarch string
+		if runtime.GOARCH == "386"{
+			goarch = "86"
+		} else if runtime.GOARCH == "amd64"{
+			goarch = "64"
+		}
+		url := "http://www.zoranjojo.top:9925/api/v1/update?goos=" + runtime.GOOS + "&goarch=" + goarch + "&version=" + Version
+		resp, err := http.Get(url)
+		if err != nil {
+			sendHttpErrorResponse(w, -1, "查找版本更新失败")
+		}
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+
+		if err != nil {
+			sendHttpErrorResponse(w, -2, "查找版本更新失败")
+		}
+
+		sendHttpResponse(w, "", string(body))
+	}
+	if rmethod == "notice" {
+		url := "http://www.zoranjojo.top:9925/api/v1/notice"
+		resp, err := http.Get(url)
+		if err != nil {
+			sendHttpErrorResponse(w, -1, "查找通知信息失败")
+		}
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+
+		if err != nil {
+			sendHttpErrorResponse(w, -2, "查找通知信息失败")
+		}
+
+		sendHttpResponse(w, "", string(body))
 	}
 }
 

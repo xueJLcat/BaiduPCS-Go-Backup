@@ -39,6 +39,7 @@ type PCSConfig struct {
 	userAgent       string // 浏览器标识
 	saveDir         string // 下载储存路径
 	enableHTTPS     bool   // 启用https
+	accessPass      string // 密码启动
 
 	configFilePath string
 	configFile     *os.File
@@ -204,6 +205,7 @@ func (c *PCSConfig) initDefaultConfig() {
 	c.maxParallel = 100
 	c.maxDownloadLoad = 1
 	c.userAgent = "netdisk;8.3.1;android-android"
+	c.accessPass = ""
 
 	// 设置默认的下载路径
 	switch runtime.GOOS {

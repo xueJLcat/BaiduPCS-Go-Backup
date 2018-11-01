@@ -2,8 +2,8 @@ package pcsweb
 
 import (
 	"fmt"
-	"net/http"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
+	"net/http"
 )
 
 func middleware(next http.HandlerFunc) http.HandlerFunc {
@@ -29,7 +29,7 @@ func activeAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		if activeUser.Name == "" {
 			response := &Response{
 				Code: NotLogin,
-				Msg: "Pease login first!",
+				Msg:  "Pease login first!",
 			}
 			w.Header().Set("Access-Control-Allow-Origin", "*")             //允许访问所有域
 			w.Header().Add("Access-Control-Allow-Headers", "Content-Type") //header的类型
@@ -44,8 +44,9 @@ func activeAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 func rootMiddleware(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
 		// 跳转到 /index.html
-		w.Header().Set("Location", "/index.html")
-		http.Error(w, "", 301)
+		//w.Header().Set("Location", "/index.html")
+		//http.Error(w, "", 301)
+		indexPage(w, r)
 	} else {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(404)

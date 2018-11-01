@@ -1,20 +1,20 @@
 package pcsweb
 
 import (
+	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
 	"html/template"
 	"io/ioutil"
-	"strings"
-	"sort"
 	"path/filepath"
-	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
+	"sort"
+	"strings"
 )
 
 type FileDesc struct {
-	Name  string      `json:"name"`
-	Path  string      `json:"path"`
-	IsDir bool        `json:"isdir"`
-	Size  string      `json:"size"`
-	MDate string      `json:"date"`
+	Name  string `json:"name"`
+	Path  string `json:"path"`
+	IsDir bool   `json:"isdir"`
+	Size  string `json:"size"`
+	MDate string `json:"date"`
 }
 
 type FileDescs []FileDesc
@@ -44,7 +44,7 @@ func (fds FileDescs) Swap(i, j int) {
 func boxTmplParse(name string, fileNames ...string) (tmpl *template.Template) {
 	tmpl = template.New(name)
 	for k := range fileNames {
-		tmpl.Parse(templatesBox.MustString(fileNames[k]))
+		tmpl.Parse(distBox.MustString(fileNames[k]))
 	}
 	return
 }
@@ -72,10 +72,10 @@ func ListLocalDir(dirPth string, suffix string) (files FileDescs, err error) {
 			continue
 		}
 		files = append(files, FileDesc{
-			Name: fi.Name(),
-			Path: dirPth + "/" + fi.Name(),
+			Name:  fi.Name(),
+			Path:  dirPth + "/" + fi.Name(),
 			IsDir: fi.IsDir(),
-			Size: converter.ConvertFileSize(fi.Size(), 2),
+			Size:  converter.ConvertFileSize(fi.Size(), 2),
 			MDate: fi.ModTime().String(),
 		})
 	}

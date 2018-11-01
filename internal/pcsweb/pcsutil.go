@@ -1,29 +1,93 @@
 package pcsweb
 
 import (
-	"io"
-	"net/http"
 	"fmt"
-	"strings"
-	"strconv"
+	"github.com/iikira/BaiduPCS-Go/baidupcs"
+	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
+	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
+	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
+	"github.com/iikira/BaiduPCS-Go/pcsverbose"
+	"io"
 	"io/ioutil"
+	"net/http"
 	"os/exec"
 	"runtime"
-	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
-	"github.com/iikira/BaiduPCS-Go/baidupcs"
-	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
-	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
-	"github.com/iikira/BaiduPCS-Go/pcsverbose"
+	"strconv"
+	"strings"
 )
 
-var(
+var (
 	pcsCommandVerbose = pcsverbose.New("PCSCOMMAND")
-	Version = "3.5.7"
+	Version           = "3.5.7"
 )
+
+func PasswordHandle(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	method := r.Form.Get("method")
+	switch method {
+	case "exist":
+		password := pcsconfig.Config.AccessPass()
+		if password != "" {
+			sendHttpResponse(w, "", true)
+			return
+		}
+		sendHttpResponse(w, "", false)
+	case "set":
+		password := pcsconfig.Config.AccessPass()
+		oldpass := r.Form.Get("oldpass")
+		if password != "" && oldpass != password {
+			sendHttpErrorResponse(w, -3, "密码输入错误")
+			return
+		}
+
+		pass := r.Form.Get("password")
+		pcsconfig.Config.SetAccessPass(pass)
+		if err := pcsconfig.Config.Save(); err != nil {
+			sendHttpErrorResponse(w, -2, "保存配置错误: "+err.Error())
+			return
+		}
+		sendHttpResponse(w, "", "")
+	}
+}
 
 func UserHandle(w http.ResponseWriter, r *http.Request) {
-	activeUser := pcsconfig.Config.ActiveUser()
-	sendHttpResponse(w, "", activeUser)
+	r.ParseForm()
+	method := r.Form.Get("method")
+	switch method {
+	case "list":
+		sendHttpResponse(w, "", pcsconfig.Config.BaiduUserList())
+	case "get":
+		activeUser := pcsconfig.Config.ActiveUser()
+		sendHttpResponse(w, "", activeUser)
+	case "set":
+		name := r.Form.Get("name")
+		_, err := pcsconfig.Config.SwitchUser(&pcsconfig.BaiduBase{
+			Name: name,
+		})
+		if err != nil {
+			var uid uint64
+			for _, user := range pcsconfig.Config.BaiduUserList() {
+				if user.Name == name {
+					uid = user.UID
+				}
+			}
+			_, err = pcsconfig.Config.SwitchUser(&pcsconfig.BaiduBase{
+				UID: uid,
+			})
+			if err != nil {
+				sendHttpErrorResponse(w, -1, "切换用户失败: "+err.Error())
+				return
+			}
+		}
+
+		if err = pcsconfig.Config.Save(); err != nil {
+			sendHttpErrorResponse(w, -2, "保存配置错误: "+err.Error())
+			return
+		}
+
+		activeUser := pcsconfig.Config.ActiveUser()
+		sendHttpResponse(w, "", activeUser)
+	}
 }
 
 func QuotaHandle(w http.ResponseWriter, r *http.Request) {
@@ -31,8 +95,8 @@ func QuotaHandle(w http.ResponseWriter, r *http.Request) {
 	quotaMsg := fmt.Sprintf("{\"quota\": \"%s\", \"used\": \"%s\", \"un_used\": \"%s\", \"percent\": %.2f}",
 		converter.ConvertFileSize(quota, 2),
 		converter.ConvertFileSize(used, 2),
-		converter.ConvertFileSize(quota - used, 2),
-		100 * float64(used) / float64(quota))
+		converter.ConvertFileSize(quota-used, 2),
+		100*float64(used)/float64(quota))
 	pcsCommandVerbose.Info(quotaMsg)
 	sendHttpResponse(w, "", quotaMsg)
 }
@@ -51,7 +115,7 @@ func DownloadHandle(w http.ResponseWriter, r *http.Request) {
 
 	response := &Response{
 		Code: 0,
-		Msg: "success",
+		Msg:  "success",
 	}
 	switch method {
 	case "pause":
@@ -174,46 +238,46 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 	if rmethod == "get" {
 		configJsons := make([]pcsConfigJSON, 0, 10)
 		configJsons = append(configJsons, pcsConfigJSON{
-			Name: "PCS应用ID",
+			Name:   "PCS应用ID",
 			EnName: "appid",
-			Value: strconv.Itoa(config.AppID()),
-			Desc: "",
+			Value:  strconv.Itoa(config.AppID()),
+			Desc:   "",
 		})
 		configJsons = append(configJsons, pcsConfigJSON{
-			Name: "启用 https",
+			Name:   "启用 https",
 			EnName: "enable_https",
-			Value: fmt.Sprint(config.EnableHTTPS()),
-			Desc: "",
+			Value:  fmt.Sprint(config.EnableHTTPS()),
+			Desc:   "",
 		})
 		configJsons = append(configJsons, pcsConfigJSON{
-			Name: "浏览器标识",
+			Name:   "浏览器标识",
 			EnName: "user_agent",
-			Value: config.UserAgent(),
-			Desc: "",
+			Value:  config.UserAgent(),
+			Desc:   "",
 		})
 		configJsons = append(configJsons, pcsConfigJSON{
-			Name: "下载缓存",
+			Name:   "下载缓存",
 			EnName: "cache_size",
-			Value: strconv.Itoa(config.CacheSize()),
-			Desc: "建议1024 ~ 262144, 如果硬盘占用高或下载速度慢, 请尝试调大此值",
+			Value:  strconv.Itoa(config.CacheSize()),
+			Desc:   "建议1024 ~ 262144, 如果硬盘占用高或下载速度慢, 请尝试调大此值",
 		})
 		configJsons = append(configJsons, pcsConfigJSON{
-			Name: "下载最大并发量",
+			Name:   "下载最大并发量",
 			EnName: "max_parallel",
-			Value: strconv.Itoa(config.MaxParallel()),
-			Desc: "建议50 ~ 500. 单任务下载最大线程数量",
+			Value:  strconv.Itoa(config.MaxParallel()),
+			Desc:   "建议50 ~ 500. 单任务下载最大线程数量",
 		})
 		configJsons = append(configJsons, pcsConfigJSON{
-			Name: "同时下载数量",
+			Name:   "同时下载数量",
 			EnName: "max_download_load",
-			Value: strconv.Itoa(config.MaxDownloadLoad()),
-			Desc: "建议 1 ~ 5, 同时进行下载文件的最大数量",
+			Value:  strconv.Itoa(config.MaxDownloadLoad()),
+			Desc:   "建议 1 ~ 5, 同时进行下载文件的最大数量",
 		})
 		configJsons = append(configJsons, pcsConfigJSON{
-			Name: "下载目录",
+			Name:   "下载目录",
 			EnName: "savedir",
-			Value: config.SaveDir(),
-			Desc: "下载文件的储存目录",
+			Value:  config.SaveDir(),
+			Desc:   "下载文件的储存目录",
 		})
 		sendHttpResponse(w, "", configJsons)
 	}
@@ -231,12 +295,12 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		int_value, _ :=strconv.Atoi(appid)
+		int_value, _ := strconv.Atoi(appid)
 		config.SetAppID(int_value)
 		bool_value, _ := strconv.ParseBool(enable_https)
 		config.SetEnableHTTPS(bool_value)
 		config.SetUserAgent(user_agent)
-		int_value, _ =strconv.Atoi(cache_size)
+		int_value, _ = strconv.Atoi(cache_size)
 		config.SetCacheSize(int_value)
 		int_value, _ = strconv.Atoi(max_parallel)
 		config.SetMaxParallel(int_value)
@@ -297,10 +361,10 @@ func LogoutHandle(w http.ResponseWriter, r *http.Request) {
 func LocalFileHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	rmethod := r.Form.Get("method")
-	rpath:= r.Form.Get("path")
+	rpath := r.Form.Get("path")
 	pcsCommandVerbose.Info("本地文件操作:" + rmethod + " " + rpath)
 
-	if (rmethod == "list"){
+	if rmethod == "list" {
 		files, err := ListLocalDir(rpath, "")
 		if err != nil {
 			sendHttpErrorResponse(w, -1, err.Error())
@@ -309,25 +373,25 @@ func LocalFileHandle(w http.ResponseWriter, r *http.Request) {
 		sendHttpResponse(w, "", files)
 		return
 	}
-	if (rmethod == "open_folder"){
+	if rmethod == "open_folder" {
 		tmp := strings.Split(rpath, "/")
-		if runtime.GOOS == "windows"{
-			path := strings.Join(tmp[:len(tmp) - 1], "\\")
+		if runtime.GOOS == "windows" {
+			path := strings.Join(tmp[:len(tmp)-1], "\\")
 			cmd := exec.Command("explorer", path)
 			cmd.Run()
 			sendHttpResponse(w, "", "")
-		} else if runtime.GOOS == "linux"{
-			path := strings.Join(tmp[:len(tmp) - 1], "/")
+		} else if runtime.GOOS == "linux" {
+			path := strings.Join(tmp[:len(tmp)-1], "/")
 			cmd := exec.Command("nautilus", path)
 			cmd.Run()
 			sendHttpResponse(w, "", "")
-		} else if runtime.GOOS == "darwin"{
-			path := strings.Join(tmp[:len(tmp) - 1], "/")
+		} else if runtime.GOOS == "darwin" {
+			path := strings.Join(tmp[:len(tmp)-1], "/")
 			cmd := exec.Command("open", path)
 			cmd.Run()
 			sendHttpResponse(w, "", "")
 		} else {
-			sendHttpErrorResponse(w, -1,"不支持的系统")
+			sendHttpErrorResponse(w, -1, "不支持的系统")
 		}
 		return
 	}
@@ -336,16 +400,16 @@ func LocalFileHandle(w http.ResponseWriter, r *http.Request) {
 func FileOperationHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	rmethod := r.Form.Get("method")
-	rpaths:= r.Form.Get("paths")
+	rpaths := r.Form.Get("paths")
 	pcsCommandVerbose.Info("远程文件操作:" + rmethod + " " + rpaths)
 
 	paths := strings.Split(rpaths, "|")
 	var err error
-	if (rmethod == "copy"){
+	if rmethod == "copy" {
 		err = pcscommand.RunCopy(paths...)
-	} else if (rmethod == "move"){
+	} else if rmethod == "move" {
 		err = pcscommand.RunMove(paths...)
-	} else if (rmethod == "remove"){
+	} else if rmethod == "remove" {
 		err = pcscommand.RunRemove(paths...)
 	} else {
 		sendHttpErrorResponse(w, -2, "方法调用错误")

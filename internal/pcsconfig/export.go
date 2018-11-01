@@ -24,6 +24,7 @@ type pcsConfigJSONExport struct {
 	UserAgent   string `json:"user_agent"`   // 浏览器标识
 	SaveDir     string `json:"savedir"`      // 下载储存路径
 	EnableHTTPS bool   `json:"enable_https"` // 启用https
+	AccessPass  string `json:"access_pass"`  // 登录密码
 }
 
 // ActiveUser 获取当前登录的用户
@@ -93,6 +94,11 @@ func (c *PCSConfig) SaveDir() string {
 // EnableHTTPS 返回是否启用https
 func (c *PCSConfig) EnableHTTPS() bool {
 	return c.enableHTTPS
+}
+
+// EnableHTTPS 返回是否启用https
+func (c *PCSConfig) AccessPass() string {
+	return c.accessPass
 }
 
 // AverageParallel 返回平均的下载最大并发量

@@ -174,3 +174,8 @@ func (c *PCSConfig) SetEnableHTTPS(https bool) {
 		c.pcs.SetHTTPS(https)
 	}
 }
+
+// SetAccessPass 设置登录密码
+func (c *PCSConfig) SetAccessPass(pass string) {
+	c.accessPass = pass
+}

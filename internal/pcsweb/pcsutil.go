@@ -32,6 +32,14 @@ func PasswordHandle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		sendHttpResponse(w, "", false)
+	case "verify":
+		password := pcsconfig.Config.AccessPass()
+		pass := r.Form.Get("password")
+		if pass == password {
+			sendHttpResponse(w, "", true)
+			return
+		}
+		sendHttpResponse(w, "", false)
 	case "set":
 		password := pcsconfig.Config.AccessPass()
 		oldpass := r.Form.Get("oldpass")

@@ -14,7 +14,7 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/3.5.0/workbox-sw.js");
 
 importScripts(
-  "/dist/precache-manifest.37aaf4e6ee1c475e05f1718cb8b3dca6.js"
+  "/dist/precache-manifest.0a27a12a2e860c840abdf7fa5f1e0360.js"
 );
 
 workbox.core.setCacheNameDetails({prefix: "baidu-pcs-web"});

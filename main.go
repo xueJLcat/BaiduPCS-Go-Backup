@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	Version = "3.5.7"
+	Version = "3.5.8"
 	reloadFn = func(c *cli.Context) error {
 		err := pcsconfig.Config.Reload()
 		if err != nil {
@@ -69,7 +69,7 @@ func main() {
 		},
 	}
 	app.Action = func(c *cli.Context) {
-		fmt.Printf("打开浏览器, 输入 localhost:5299 查看效果\n")
+		fmt.Printf("打开浏览器, 输入 http://localhost:5299 查看效果\n")
 		if err := pcsweb.StartServer(5299); err != nil{
 			fmt.Println(err.Error())
 		}
@@ -81,7 +81,7 @@ func main() {
 			Category: "其他",
 			Before:   reloadFn,
 			Action: func(c *cli.Context) error {
-				fmt.Printf("打开浏览器, 输入: localhost:%d 查看效果\n", c.Uint("port"))
+				fmt.Printf("打开浏览器, 输入: http://localhost:%d 查看效果\n", c.Uint("port"))
 				fmt.Println(pcsweb.StartServer(c.Uint("port")))
 				return nil
 			},

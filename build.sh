@@ -7,7 +7,7 @@ GOROOT=/usr/local/go
 go=$GOROOT/bin/go
 
 if [ "$1" = "" ];then
-    version=3.5.7
+    version=3.5.8
 fi
 
 output="out/"
@@ -21,7 +21,7 @@ Build() {
     echo "Building $1..."
     export GOOS=$2 GOARCH=$3 GO386=sse2 CGO_ENABLED=0 GOARM=$4
     if [ $2 = "windows" ];then
-        ./goversioninfo -icon=assets/$name.ico -manifest="$name".exe.manifest -product-name="$name" -file-version="$version" -product-version="$version" -company=iikira -copyright="© 2016-2018 iikira." -o=resource_windows.syso
+        ./goversioninfo -icon=assets/$name.ico -manifest="$name".exe.manifest -product-name="$name" -file-version="$version" -product-version="$version" -company=liuzhuoling -copyright="©2018 liuzhuoling" -o=resource_windows.syso
         $go build -ldflags "-X main.Version=$version -s -w" -o "$output/$1/$name.exe"
         RicePack $1 $name.exe
     else

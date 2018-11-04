@@ -2,12 +2,11 @@ package pcsweb
 
 import (
 	"fmt"
-	"golang.org/x/net/websocket"
 	"github.com/bitly/go-simplejson"
-	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	"github.com/iikira/Baidu-Login"
+	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
+	"golang.org/x/net/websocket"
 )
-
 
 func getValueFromWSJson(conn *websocket.Conn, key string) (resString string, err error) {
 	var reply string
@@ -27,8 +26,8 @@ func getValueFromWSJson(conn *websocket.Conn, key string) (resString string, err
 
 func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 	var (
-		vcode string
-		vcodestr string
+		vcode                 string
+		vcodestr              string
 		BDUSS, PToken, SToken string
 	)
 
@@ -68,7 +67,7 @@ func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 		case "400038": //账号密码错误
 			sendResponse(conn, 1, 5, "账号或密码错误", "")
 		case "500001", "500002": // 验证码
-			if lj.ErrInfo.No == "500002"{
+			if lj.ErrInfo.No == "500002" {
 				sendResponse(conn, 1, 4, "验证码错误", "")
 			}
 			vcodestr = lj.Data.CodeString
@@ -109,11 +108,21 @@ func WSDownload(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 	method, _ := rJson.Get("method").String()
 
 	if method == "download" {
-		paths, _ := rJson.Get("paths").StringArray()
 		options := &DownloadOptions{
-			IsTest: false,
+			IsTest:      false,
 			IsOverwrite: true,
 		}
+
+		paths, _ := rJson.Get("paths").StringArray()
+		dtype, _ := rJson.Get("dtype").String()
+		if dtype == "share" {
+			options.IsShareDownload = true
+		} else if dtype == "locate" {
+			options.IsLocateDownload = true
+		} else if dtype == "stream" {
+			options.IsStreaming = true
+		}
+
 		RunDownload(conn, paths, options)
 		return
 	}
@@ -128,7 +137,7 @@ func WSUpload(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 	return
 }
 
-func WSHandler(conn *websocket.Conn){
+func WSHandler(conn *websocket.Conn) {
 	fmt.Printf("Websocket新建连接: %s -> %s\n", conn.RemoteAddr().String(), conn.LocalAddr().String())
 
 	for {
@@ -167,4 +176,3 @@ func WSHandler(conn *websocket.Conn){
 		}
 	}
 }
-

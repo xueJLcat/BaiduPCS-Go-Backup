@@ -26,16 +26,17 @@ type (
 		onCancelEvent     requester.Event //取消下载事件
 		monitorCancelFunc context.CancelFunc
 
-		executeTime   time.Time
-		executed      bool
-		durl          string
-		loadBalansers []string
-		tryHTTP       bool
-		writer        io.WriterAt
-		client        *requester.HTTPClient
-		config        *Config
-		monitor       *Monitor
-		instanceState *InstanceState
+		statusCodeBodyCheckFunc func(respBody io.Reader) error
+		executeTime             time.Time
+		executed                bool
+		durl                    string
+		loadBalansers           []string
+		tryHTTP                 bool
+		writer                  io.WriterAt
+		client                  *requester.HTTPClient
+		config                  *Config
+		monitor                 *Monitor
+		instanceState           *InstanceState
 	}
 )
 
@@ -54,6 +55,11 @@ func (der *Downloader) SetClient(client *requester.HTTPClient) {
 	der.client = client
 }
 
+//SetStatusCodeBodyCheckFunc 设置响应状态码出错的检查函数, 当FirstCheckMethod不为HEAD时才有效
+func (der *Downloader) SetStatusCodeBodyCheckFunc(f func(respBody io.Reader) error) {
+	der.statusCodeBodyCheckFunc = f
+}
+
 //TryHTTP 尝试使用 http 连接
 func (der *Downloader) TryHTTP(t bool) {
 	der.tryHTTP = t
@@ -65,6 +71,7 @@ func (der *Downloader) lazyInit() {
 	}
 	if der.client == nil {
 		der.client = requester.NewHTTPClient()
+		der.client.SetTimeout(20 * time.Minute)
 	}
 	if der.monitor == nil {
 		der.monitor = NewMonitor()
@@ -76,11 +83,11 @@ func (der *Downloader) Execute() error {
 	der.lazyInit()
 
 	// 检测
-	resp, err := der.client.Req("HEAD", der.durl, nil, nil)
-	if resp != nil {
-		defer resp.Body.Close()
-	}
+	resp, err := der.client.Req("GET", der.durl, nil, nil)
 	if err != nil {
+		if resp != nil {
+			resp.Body.Close()
+		}
 		return err
 	}
 
@@ -88,6 +95,13 @@ func (der *Downloader) Execute() error {
 	switch resp.StatusCode / 100 {
 	case 2: // succeed
 	case 4, 5: // error
+		if der.statusCodeBodyCheckFunc != nil {
+			err = der.statusCodeBodyCheckFunc(resp.Body)
+			resp.Body.Close() // 关闭连接
+			if err != nil {
+				return err
+			}
+		}
 		return errors.New(resp.Status)
 	}
 
@@ -124,7 +138,7 @@ func (der *Downloader) Execute() error {
 		}
 	)
 
-	handleLoadBalancer(resp.Request)
+	handleLoadBalancer(resp.Request) // 加入第一个
 
 	// 负载均衡
 	wg := waitgroup.NewWaitGroup(10)
@@ -135,9 +149,9 @@ func (der *Downloader) Execute() error {
 		go func(loadBalanser string) {
 			defer wg.Done()
 
-			subResp, subErr := der.client.Req("HEAD", loadBalanser, nil, nil)
+			subResp, subErr := der.client.Req("GET", loadBalanser, nil, nil)
 			if subResp != nil {
-				defer subResp.Body.Close()
+				subResp.Body.Close() // 不读Body, 马上关闭连接
 			}
 			if subErr != nil {
 				pcsverbose.Verbosef("DEBUG: loadBalanser Error: %s\n", subErr)
@@ -196,7 +210,7 @@ func (der *Downloader) Execute() error {
 		}
 	}
 
-	if der.config.parallel <= 0 {
+	if der.config.parallel < 1 {
 		der.config.parallel = 1
 	}
 
@@ -235,6 +249,9 @@ func (der *Downloader) Execute() error {
 		worker.SetCacheSize(der.config.cacheSize)
 		worker.SetWriteMutex(writeMu)
 		worker.SetReferer(loadBalancer.Referer)
+		if i == 0 {
+			worker.firstResp = resp // 使用第一个连接
+		}
 
 		// 分配线程
 		if isRange {

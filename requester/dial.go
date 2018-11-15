@@ -3,7 +3,10 @@ package requester
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"net"
+	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 )
@@ -14,7 +17,48 @@ var (
 		KeepAlive: 30 * time.Second,
 		DualStack: true,
 	}
+
+	// ProxyAddr 代理地址
+	ProxyAddr string
+
+	// ErrProxyAddrEmpty 代理地址为空
+	ErrProxyAddrEmpty = errors.New("proxy addr is empty")
 )
+
+func proxyFunc(req *http.Request) (*url.URL, error) {
+	u, err := checkProxyAddr(ProxyAddr)
+	if err != nil {
+		return http.ProxyFromEnvironment(req)
+	}
+
+	return u, err
+}
+
+func checkProxyAddr(proxyAddr string) (u *url.URL, err error) {
+	if proxyAddr == "" {
+		return nil, ErrProxyAddrEmpty
+	}
+
+	host, port, err := net.SplitHostPort(proxyAddr)
+	if err == nil {
+		u = &url.URL{
+			Host: net.JoinHostPort(host, port),
+		}
+		return
+	}
+
+	u, err = url.Parse(proxyAddr)
+	if err == nil {
+		return
+	}
+
+	return
+}
+
+// SetGlobalProxy 设置代理
+func SetGlobalProxy(proxyAddr string) {
+	ProxyAddr = proxyAddr
+}
 
 func getServerName(address string) string {
 	host, _, err := net.SplitHostPort(address)
@@ -50,14 +94,14 @@ func resolveTCP(ctx context.Context, address string) (tcpaddr *net.TCPAddr, err 
 func dialContext(ctx context.Context, network, address string) (conn net.Conn, err error) {
 	switch network {
 	case "tcp", "tcp4", "tcp6":
-		// 检测缓存
-		if TCPAddrCache.Existed(address) {
-			return net.DialTCP(network, nil, TCPAddrCache.Get(address))
-		}
-
 		var (
-			ta *net.TCPAddr
+			ta = TCPAddrCache.Get(address)
 		)
+
+		// 检测缓存
+		if ta != nil {
+			return net.DialTCP(network, nil, ta)
+		}
 
 		// Resolve TCP address
 		ta, err = resolveTCP(ctx, address)

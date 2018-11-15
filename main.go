@@ -3,10 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	_ "github.com/iikira/BaiduPCS-Go/internal/pcsinit"
-	"github.com/iikira/BaiduPCS-Go/pcscache"
 	"github.com/iikira/BaiduPCS-Go/pcsutil"
 	"github.com/iikira/BaiduPCS-Go/requester"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsweb"
@@ -39,8 +37,6 @@ func init() {
 	}
 
 	// 启动缓存回收
-	pcscache.DirCache.SetLifeTime(10 * time.Second)
-	pcscache.DirCache.GC()
 	requester.TCPAddrCache.GC()
 }
 

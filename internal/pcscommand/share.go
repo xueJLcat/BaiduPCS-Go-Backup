@@ -75,7 +75,7 @@ func RunShareList(page int) {
 	tb.Render()
 }
 
-func getShareDLink(pcspath string) (dlink string, err error) {
+func GetShareDLink(pcspath string) (dlink string, err error) {
 	var (
 		pcs = GetBaiduPCS()
 	)

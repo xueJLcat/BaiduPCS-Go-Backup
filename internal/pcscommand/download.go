@@ -484,7 +484,7 @@ func RunDownload(paths []string, options *DownloadOptions) {
 					}
 				}
 			case options.IsShareDownload: // 分享下载
-				dlink, err = getShareDLink(task.path)
+				dlink, err = GetShareDLink(task.path)
 				switch err {
 				case nil, ErrShareInfoNotFound: // 未分享, 采用默认下载方式
 				default:

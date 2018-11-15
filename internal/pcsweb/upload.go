@@ -1,38 +1,40 @@
 package pcsweb
 
 import (
-	"fmt"
-	"encoding/hex"
-	"time"
-	"container/list"
-	"path/filepath"
-	"os"
-	"strings"
-	"path"
 	"bytes"
-	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
+	"container/list"
+	"encoding/hex"
+	"fmt"
 	"github.com/iikira/BaiduPCS-Go/baidupcs"
-	"github.com/iikira/BaiduPCS-Go/pcsutil/checksum"
-	"github.com/iikira/BaiduPCS-Go/pcscache"
-	"github.com/iikira/BaiduPCS-Go/requester/uploader"
-	"github.com/iikira/BaiduPCS-Go/requester/rio"
-	"github.com/iikira/BaiduPCS-Go/pcsutil/delay"
-	"github.com/iikira/BaiduPCS-Go/pcsutil"
-	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	"github.com/iikira/BaiduPCS-Go/baidupcs/pcserror"
+	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
+	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsfunctions/pcsupload"
+	"github.com/iikira/BaiduPCS-Go/pcsutil"
+	"github.com/iikira/BaiduPCS-Go/pcsutil/checksum"
+	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
+	"github.com/iikira/BaiduPCS-Go/requester/rio"
+	"github.com/iikira/BaiduPCS-Go/requester/uploader"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+	"time"
 	"golang.org/x/net/websocket"
 )
 
 const (
 	requiredSliceSize = 256 * converter.KB // 256 KB
+	// DefaultUploadMaxRetry 默认上传失败最大重试次数
+	DefaultUploadMaxRetry = 3
 )
 
 type (
+	// UploadOptions 上传可选项
 	UploadOptions struct {
 		Parallel       int
+		MaxRetry       int
 		NotRapidUpload bool
-		NotFixMD5      bool
 		NotSplitFile   bool // 禁用分片上传
 	}
 
@@ -41,10 +43,9 @@ type (
 
 	utask struct {
 		ListTask
-		uploadInfo        *checksum.LocalFile // 要上传的本地文件详情
-		step              StepUpload
-		savePath          string
-		uploadedDelayChan <-chan struct{} // 非强一致接口, 上传完成后需要等待
+		uploadInfo *checksum.LocalFile // 要上传的本地文件详情
+		step       StepUpload
+		savePath   string
 	}
 )
 
@@ -57,55 +58,129 @@ const (
 	StepUploadUpload
 )
 
+
+// RunRapidUpload 执行秒传文件, 前提是知道文件的大小, md5, 前256KB切片的 md5, crc32
+func RunRapidUpload(targetPath, contentMD5, sliceMD5, crc32 string, length int64) {
+	err := matchPathByShellPatternOnce(&targetPath)
+	if err != nil {
+		fmt.Printf("警告: %s, 获取网盘路径 %s 错误, %s\n", baidupcs.OperationRapidUpload, targetPath, err)
+	}
+
+	if sliceMD5 == "" {
+		sliceMD5 = baidupcs.FixSliceMD5(sliceMD5)
+	}
+
+	err = pcscommand.GetBaiduPCS().RapidUpload(targetPath, contentMD5, sliceMD5, crc32, length)
+	if err != nil {
+		fmt.Printf("%s失败, 消息: %s\n", baidupcs.OperationRapidUpload, err)
+		return
+	}
+
+	fmt.Printf("%s成功, 保存到网盘路径: %s\n", baidupcs.OperationRapidUpload, targetPath)
+	return
+}
+
+// RunCreateSuperFile 执行分片上传—合并分片文件
+func RunCreateSuperFile(targetPath string, blockList ...string) {
+	err := matchPathByShellPatternOnce(&targetPath)
+	if err != nil {
+		fmt.Printf("警告: %s, 获取网盘路径 %s 错误, %s\n", baidupcs.OperationUploadCreateSuperFile, targetPath, err)
+	}
+
+	err = pcscommand.GetBaiduPCS().UploadCreateSuperFile(targetPath, blockList...)
+	if err != nil {
+		fmt.Printf("%s失败, 消息: %s\n", baidupcs.OperationUploadCreateSuperFile, err)
+		return
+	}
+
+	fmt.Printf("%s成功, 保存到网盘路径: %s\n", baidupcs.OperationUploadCreateSuperFile, targetPath)
+	return
+}
+
 // RunUpload 执行文件上传
-func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *UploadOptions) (err error){
+func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *UploadOptions) {
 	if opt == nil {
 		opt = &UploadOptions{}
 	}
 
 	// 检测opt
 	if opt.Parallel <= 0 {
-		opt.Parallel = pcsconfig.Config.MaxParallel()
+		opt.Parallel = pcsconfig.Config.MaxUploadParallel()
+	}
+
+	if opt.MaxRetry < 0 {
+		opt.MaxRetry = DefaultUploadMaxRetry
+	}
+
+	err := matchPathByShellPatternOnce(&savePath)
+	if err != nil {
+		fmt.Printf("警告: 上传文件, 获取网盘路径 %s 错误, %s\n", savePath, err)
+	}
+
+	switch len(localPaths) {
+	case 0:
+		fmt.Printf("本地路径为空\n")
+		return
 	}
 
 	var (
-		pcs           = pcsconfig.Config.ActiveUserBaiduPCS()
+		pcs           = pcscommand.GetBaiduPCS()
 		ulist         = list.New()
-		needsFixList  = list.New()
 		lastID        int
 		globedPathDir string
 		subSavePath   string
 	)
+
 	for k := range localPaths {
-		walkedFiles, _ := pcsutil.WalkDir(localPaths[k], "")
-		for k1 := range walkedFiles {
-			// 针对 windows 的目录处理
-			if os.PathSeparator == '\\' {
-				walkedFiles[k1] = pcsutil.ConvertToUnixPathSeparator(walkedFiles[k1])
-				globedPathDir = pcsutil.ConvertToUnixPathSeparator(filepath.Dir(localPaths[k]))
-			} else {
-				globedPathDir = filepath.Dir(localPaths[k])
-			}
-
-			// 避免去除文件名开头的"."
-			if globedPathDir == "." {
-				globedPathDir = ""
-			}
-
-			subSavePath = strings.TrimPrefix(walkedFiles[k1], globedPathDir)
-			lastID++
-			ulist.PushBack(&utask{
-				ListTask: ListTask{
-					ID:       lastID,
-					MaxRetry: 3,
-				},
-				uploadInfo: checksum.NewLocalFileInfo(walkedFiles[k1], int(requiredSliceSize)),
-				savePath:   path.Clean(savePath + "/" + subSavePath),
-			})
-
-			MsgBody = fmt.Sprintf("{\"LastID\": %d, \"path\": \"%s\"}", lastID, walkedFiles[k1])
-			sendResponse(conn, 3, 1, "添加进任务队列", MsgBody)
+		globedPaths, err := filepath.Glob(localPaths[k])
+		if err != nil {
+			fmt.Printf("上传文件, 匹配本地路径失败, %s\n", err)
+			continue
 		}
+
+		for k2 := range globedPaths {
+			walkedFiles, err := pcsutil.WalkDir(globedPaths[k2], "")
+			if err != nil {
+				fmt.Printf("警告: %s\n", err)
+				continue
+			}
+
+			for k3 := range walkedFiles {
+				// 针对 windows 的目录处理
+				if os.PathSeparator == '\\' {
+					walkedFiles[k3] = pcsutil.ConvertToUnixPathSeparator(walkedFiles[k3])
+					globedPathDir = pcsutil.ConvertToUnixPathSeparator(filepath.Dir(globedPaths[k2]))
+				} else {
+					globedPathDir = filepath.Dir(globedPaths[k2])
+				}
+
+				// 避免去除文件名开头的"."
+				if globedPathDir == "." {
+					globedPathDir = ""
+				}
+
+				subSavePath = strings.TrimPrefix(walkedFiles[k3], globedPathDir)
+
+				lastID++
+				ulist.PushBack(&utask{
+					ListTask: ListTask{
+						ID:       lastID,
+						MaxRetry: opt.MaxRetry,
+					},
+					uploadInfo: checksum.NewLocalFileInfo(walkedFiles[k3], int(requiredSliceSize)),
+					savePath:   path.Clean(savePath + "/" + subSavePath),
+				})
+
+				fmt.Printf("[%d] 加入上传队列: %s\n", lastID, walkedFiles[k3])
+				MsgBody = fmt.Sprintf("{\"LastID\": %d, \"path\": \"%s\"}", lastID, walkedFiles[k3])
+				sendResponse(conn, 3, 1, "添加进任务队列", MsgBody)
+			}
+		}
+	}
+
+	if lastID == 0 {
+		fmt.Printf("未检测到上传的文件, 请检查文件路径或通配符是否正确.\n")
+		return
 	}
 
 	uploadDatabase, err := pcsupload.NewUploadingDatabase()
@@ -132,7 +207,7 @@ func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *
 			case pcserror.ErrTypeRemoteError:
 				switch pcsError.GetRemoteErrCode() {
 				case 31200: //[Method:Insert][Error:Insert Request Forbid]
-					// do nothing, continue
+				// do nothing, continue
 				default:
 					fmt.Printf("[%d] %s, %s\n", task.ID, errManifest, pcsError)
 					return
@@ -153,6 +228,8 @@ func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *
 				ulist.PushBack(task)
 				time.Sleep(3 * time.Duration(task.retry) * time.Second)
 			} else {
+				// on failed
+				fmt.Printf("[%d] %s, %s\n", task.ID, errManifest, pcsError)
 				sendResponse(conn, 3, -3, "上传任务失败", "")
 			}
 		}
@@ -170,14 +247,15 @@ func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *
 		task := e.Value.(*utask)
 
 		func() {
+			fmt.Printf("[%d] 准备上传: %s\n", task.ID, task.uploadInfo.Path)
 			MsgBody = fmt.Sprintf("{\"LastID\": %d, \"path\": \"%s\"}", task.ID, task.uploadInfo.Path)
 			sendResponse(conn, 3, 2, "准备上传", MsgBody)
 
 			err = task.uploadInfo.OpenPath()
 			if err != nil {
+				fmt.Printf("[%d] 文件不可读, 错误信息: %s, 跳过...\n", task.ID, err)
 				MsgBody = fmt.Sprintf("{\"LastID\": %d, \"error\": \"%s\"}", task.ID, err)
 				sendResponse(conn, 3, -4, "文件不可读, 跳过", MsgBody)
-				fmt.Printf("[%d] 文件不可读, 错误信息: %s, 跳过...\n", task.ID, err)
 				return
 			}
 			defer task.uploadInfo.Close() // 关闭文件
@@ -186,6 +264,7 @@ func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *
 			var (
 				panDir, panFile = path.Split(task.savePath)
 			)
+			panDir = path.Clean(panDir)
 
 			// 检测断点续传
 			state := uploadDatabase.Search(&task.uploadInfo.LocalFileMeta)
@@ -209,38 +288,36 @@ func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *
 
 		stepUploadRapidUpload:
 			task.step = StepUploadRapidUpload
-
-			// 设置缓存
-			if !pcscache.DirCache.Existed(panDir) {
-				fdl, pcsError := pcs.FilesDirectoriesList(panDir, baidupcs.DefaultOrderOptions)
+			{
+				fdl, pcsError := pcs.CacheFilesDirectoriesList(panDir, baidupcs.DefaultOrderOptions)
 				if pcsError != nil {
 					switch pcsError.GetErrType() {
 					case pcserror.ErrTypeRemoteError:
 						// do nothing
 					default:
-						fmt.Printf("%s\n", err)
+						fmt.Printf("获取文件列表错误, %s\n", pcsError)
 						return
 					}
 				}
-				pcscache.DirCache.Set(panDir, &fdl)
-			}
 
-			if task.uploadInfo.Length >= 128*converter.MB {
-				fmt.Printf("[%d] 检测秒传中, 请稍候...\n", task.ID)
-			}
+				if task.uploadInfo.Length >= 128*converter.MB {
+					fmt.Printf("[%d] 检测秒传中, 请稍候...\n", task.ID)
+				}
 
-			task.uploadInfo.Md5Sum()
+				task.uploadInfo.Md5Sum()
 
-			// 检测缓存, 通过文件的md5值判断本地文件和网盘文件是否一样
-			{
-				fd := pcscache.DirCache.FindFileDirectory(panDir, panFile)
-				if fd != nil {
-					decodedMD5, _ := hex.DecodeString(fd.MD5)
-					if bytes.Compare(decodedMD5, task.uploadInfo.MD5) == 0 {
-						MsgBody = fmt.Sprintf("{\"LastID\": %d, \"savePath\": \"%s\"}", task.ID, task.savePath)
-						sendResponse(conn, 3, 3, "目标文件已存在, 跳过", MsgBody)
-						fmt.Printf("[%d] 目标文件, %s, 已存在, 跳过...\n", task.ID, task.savePath)
-						return
+				// 检测缓存, 通过文件的md5值判断本地文件和网盘文件是否一样
+				if fdl != nil {
+					for _, fd := range fdl {
+						if strings.Compare(fd.Filename, panFile) == 0 {
+							decodedMD5, _ := hex.DecodeString(fd.MD5)
+							if bytes.Compare(decodedMD5, task.uploadInfo.MD5) == 0 {
+								fmt.Printf("[%d] 目标文件, %s, 已存在, 跳过...\n", task.ID, task.savePath)
+								MsgBody = fmt.Sprintf("{\"LastID\": %d, \"savePath\": \"%s\"}", task.ID, task.savePath)
+								sendResponse(conn, 3, 3, "目标文件已存在, 跳过", MsgBody)
+								return
+							}
+						}
 					}
 				}
 			}
@@ -259,9 +336,10 @@ func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *
 
 			err = pcs.RapidUpload(task.savePath, hex.EncodeToString(task.uploadInfo.MD5), hex.EncodeToString(task.uploadInfo.SliceMD5), fmt.Sprint(task.uploadInfo.CRC32), task.uploadInfo.Length)
 			if err == nil {
+				fmt.Printf("[%d] 秒传成功, 保存到网盘路径: %s\n\n", task.ID, task.savePath)
 				MsgBody = fmt.Sprintf("{\"LastID\": %d, \"savePath\": \"%s\"}", task.ID, task.savePath)
 				sendResponse(conn, 3, 3, "秒传成功", MsgBody)
-				fmt.Printf("[%d] 秒传成功, 保存到网盘路径: %s\n\n", task.ID, task.savePath)
+				
 				totalSize += task.uploadInfo.Length
 				return
 			}
@@ -328,7 +406,7 @@ func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *
 
 							fmt.Printf("\r[%d] ↑ %s/%s %s/s in %s ............", task.ID,
 								converter.ConvertFileSize(uploaded, 2),
-								converter.ConvertFileSize(v.TotalSize(), 2),
+								converter.ConvertFileSize(totalSize, 2),
 								converter.ConvertFileSize(speeds, 2),
 								v.TimeElapsed(),
 							)
@@ -356,13 +434,6 @@ func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *
 					totalSize += task.uploadInfo.Length
 					uploadDatabase.Delete(&task.uploadInfo.LocalFileMeta) // 删除
 					uploadDatabase.Save()
-
-					// 修复md5
-					if !opt.NotFixMD5 && len(task.uploadInfo.MD5) != 0 && task.uploadInfo.Length > blockSize {
-						task.retry = 0 // 清空重试次数
-						task.uploadedDelayChan = delay.NewDelayChan(10 * time.Second)
-						needsFixList.PushBack(task)
-					}
 				})
 				muer.OnError(func(err error) {
 					close(exitChan)
@@ -380,60 +451,6 @@ func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *
 
 	fmt.Printf("\n")
 	fmt.Printf("全部上传完毕, 总大小: %s\n", converter.ConvertFileSize(totalSize))
-
-	// 修复上传成功的文件的md5
-	// 当文件分片数大于1时, 网盘端最终计算所得的md5值和本地的不一致, 这可能是百度网盘的bug
-	// 测试把上传的文件下载到本地后，对比md5值是匹配的
-	// 通过秒传的原理来修复md5值
-	if !opt.NotFixMD5 && needsFixList.Len() != 0 {
-		fmt.Printf("修复上传成功文件的md5中, 共计 %d 个文件...\n", needsFixList.Len())
-		for {
-			e := needsFixList.Front()
-			if e == nil { // 结束
-				break
-			}
-
-			needsFixList.Remove(e) // 载入任务后, 移除队列
-
-			task := e.Value.(*utask)
-			<-task.uploadedDelayChan
-
-			pcsError := pcs.RapidUpload(task.savePath, hex.EncodeToString(task.uploadInfo.MD5), baidupcs.FixSliceMD5(hex.EncodeToString(task.uploadInfo.SliceMD5)), "0", task.uploadInfo.Length)
-			if pcsError == nil {
-				fmt.Printf("[%d] 修复md5成功, %s\n", task.ID, task.savePath)
-				continue
-			}
-
-			switch pcsError.GetErrType() {
-			// 远程服务器错误
-			case pcserror.ErrTypeRemoteError:
-				switch pcsError.GetRemoteErrCode() {
-				case 31079: //秒传失败
-					task.retry++
-					if task.retry < task.MaxRetry {
-						fmt.Printf("[%d] 修复md5失败, 可能服务器未刷新, 重试 %d/%d\n", task.ID, task.retry, task.MaxRetry)
-						needsFixList.PushBack(task)
-						time.Sleep(3 * time.Duration(task.retry) * time.Second)
-					} else {
-						fmt.Printf("[%d] 修复md5失败, %s\n", task.ID, task.savePath)
-					}
-				default:
-					fmt.Printf("[%d] 修复md5失败, 消息: %s\n", task.ID, pcsError)
-					continue
-				}
-			case pcserror.ErrTypeNetError:
-				task.retry++
-				if task.retry < task.MaxRetry {
-					fmt.Printf("[%d] 修复md5失败, %s, 重试 %d/%d\n", task.ID, pcsError, task.retry, task.MaxRetry)
-					needsFixList.PushBack(task)
-					time.Sleep(3 * time.Duration(task.retry) * time.Second)
-				} else {
-					fmt.Printf("[%d] 修复md5失败, %s, 消息: %s\n", task.ID, task.savePath, pcsError)
-				}
-			}
-		}
-	}
-	return
 }
 
 func getBlockSize(fileSize int64) int64 {
@@ -443,4 +460,3 @@ func getBlockSize(fileSize int64) int64 {
 	}
 	return baidupcs.MinUploadBlockSize
 }
-

@@ -1,6 +1,7 @@
 package pcsweb
 
 import (
+	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
 	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
 	"html/template"
 	"io/ioutil"
@@ -38,6 +39,37 @@ func (fds FileDescs) Swap(i, j int) {
 	temp := fds[i]
 	fds[i] = fds[j]
 	fds[j] = temp
+}
+
+
+func matchPathByShellPatternOnce(pattern *string) error {
+	paths, err := pcscommand.GetBaiduPCS().MatchPathByShellPattern(pcscommand.GetActiveUser().PathJoin(*pattern))
+	if err != nil {
+		return err
+	}
+	switch len(paths) {
+	case 0:
+		return pcscommand.ErrShellPatternNoHit
+	case 1:
+		*pattern = paths[0]
+	default:
+		return pcscommand.ErrShellPatternMultiRes
+	}
+
+	return nil
+}
+
+func matchPathByShellPattern(patterns ...string) (pcspaths []string, err error) {
+	acUser, pcs := pcscommand.GetActiveUser(), pcscommand.GetBaiduPCS()
+	for k := range patterns {
+		ps, err := pcs.MatchPathByShellPattern(acUser.PathJoin(patterns[k]))
+		if err != nil {
+			return nil, err
+		}
+
+		pcspaths = append(pcspaths, ps...)
+	}
+	return pcspaths, nil
 }
 
 // boxTmplParse ricebox 载入文件内容, 并进行模板解析

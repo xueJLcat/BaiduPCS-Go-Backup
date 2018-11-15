@@ -25,11 +25,8 @@ type pcsConfigJSONExport struct {
 	UserAgent   string `json:"user_agent"`   // 浏览器标识
 	SaveDir     string `json:"savedir"`      // 下载储存路径
 	EnableHTTPS bool   `json:"enable_https"` // 启用https
-<<<<<<< HEAD
-	AccessPass  string `json:"access_pass"`  // 登录密码
-=======
 	Proxy       string `json:"proxy"`        // 代理
->>>>>>> cbd5618815c898da2aede693f9fe4dcee6b5815a
+	AccessPass  string `json:"access_pass"`  // 登录密码
 }
 
 // ActiveUser 获取当前登录的用户

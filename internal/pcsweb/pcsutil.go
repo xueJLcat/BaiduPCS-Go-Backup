@@ -21,6 +21,7 @@ var (
 	Version           = "3.5.8"
 )
 
+
 func PasswordHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	method := r.Form.Get("method")
@@ -191,6 +192,49 @@ func SearchHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendHttpResponse(w, "", files)
+}
+
+func RecycleHandle(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	rmethod := r.Form.Get("method")
+	pcsCommandVerbose.Info(rmethod)
+
+	if rmethod == "list" {
+		recycle, err := pcsconfig.Config.ActiveUserBaiduPCS().RecycleList(1)
+		if err != nil {
+			sendHttpErrorResponse(w, -1, err.Error())
+			return
+		}
+		sendHttpResponse(w, "", recycle)
+	}
+	if rmethod == "clear" {
+		_, err := pcsconfig.Config.ActiveUserBaiduPCS().RecycleClear()
+		if err != nil {
+			sendHttpErrorResponse(w, -1, err.Error())
+			return
+		}
+		sendHttpResponse(w, "", "")
+	}
+	if rmethod == "restore" {
+		rfid := r.Form.Get("fid")
+		fid := converter.MustInt64(rfid)
+		_, err := pcsconfig.Config.ActiveUserBaiduPCS().RecycleRestore(fid)
+		if err != nil {
+			sendHttpErrorResponse(w, -1, err.Error())
+			return
+		}
+		sendHttpResponse(w, "", "")
+	}
+	if rmethod == "delete" {
+		rfid := r.Form.Get("fid")
+		fid := converter.MustInt64(rfid)
+		err := pcsconfig.Config.ActiveUserBaiduPCS().RecycleDelete(fid)
+		if err != nil {
+			sendHttpErrorResponse(w, -1, err.Error())
+			return
+		}
+		sendHttpResponse(w, "", "")
+	}
 }
 
 func ShareHandle(w http.ResponseWriter, r *http.Request) {

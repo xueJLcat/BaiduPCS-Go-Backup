@@ -27,6 +27,7 @@ func StartServer(port uint) error {
 	http.HandleFunc("/api/v1/user", activeAuthMiddleware(UserHandle))
 	http.HandleFunc("/api/v1/quota", activeAuthMiddleware(QuotaHandle))
 	http.HandleFunc("/api/v1/share", activeAuthMiddleware(ShareHandle))
+	http.HandleFunc("/api/v1/recycle", activeAuthMiddleware(RecycleHandle))
 	http.HandleFunc("/api/v1/download", activeAuthMiddleware(DownloadHandle))
 	http.HandleFunc("/api/v1/offline_download", activeAuthMiddleware(OfflineDownloadHandle))
 	http.HandleFunc("/api/v1/search", activeAuthMiddleware(SearchHandle))

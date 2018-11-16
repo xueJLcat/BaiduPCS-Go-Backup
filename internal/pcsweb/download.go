@@ -490,6 +490,9 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 					return
 				}
 
+				MsgBody = fmt.Sprintf("{\"LastID\": %d}", task.ID)
+				sendResponse(conn, 2, 8, "删除文件夹任务", MsgBody)
+
 				for k := range fileList {
 					lastID++
 					subTask := &dtask{

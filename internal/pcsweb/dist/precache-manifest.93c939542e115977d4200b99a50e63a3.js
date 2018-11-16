@@ -12,24 +12,24 @@ self.__precacheManifest = [
     "url": "/dist/fonts/ionicons.99ac3308.woff"
   },
   {
-    "revision": "745af55115ff9db4b628",
+    "revision": "c4ca8bdda957b2ffe432",
     "url": "/dist/css/chunk-vendors.485309ac.css"
   },
   {
-    "revision": "99aadb923345ede82bbf",
-    "url": "/dist/js/download.3bb7a394.js"
+    "revision": "fb4c36c66ae4b9f8eff1",
+    "url": "/dist/js/download.aca90027.js"
   },
   {
     "revision": "a2c4a261a239aa84463dc70e4bac9b9a",
     "url": "/dist/img/ionicons.a2c4a261.svg"
   },
   {
-    "revision": "0e9f0f3b3ef7b78272bf",
-    "url": "/dist/js/app.df706e4d.js"
+    "revision": "a5060ac59881881f3f2f",
+    "url": "/dist/js/app.1bf13a39.js"
   },
   {
-    "revision": "745af55115ff9db4b628",
-    "url": "/dist/js/chunk-vendors.b27c0bd4.js"
+    "revision": "c4ca8bdda957b2ffe432",
+    "url": "/dist/js/chunk-vendors.bc2bd967.js"
   },
   {
     "revision": "c64d8255b1259bda3e716f464d2062d4",
@@ -40,7 +40,7 @@ self.__precacheManifest = [
     "url": "/dist/img/logo.7b2b7127.png"
   },
   {
-    "revision": "7bec4915a7c45bccedbd17b159ca972e",
+    "revision": "fc0fdb2017d74eb1930b43e9846d7e7d",
     "url": "/dist/index.html"
   },
   {
@@ -48,7 +48,7 @@ self.__precacheManifest = [
     "url": "/dist/img/logo.png"
   },
   {
-    "revision": "0e9f0f3b3ef7b78272bf",
-    "url": "/dist/css/app.3f1bae49.css"
+    "revision": "a5060ac59881881f3f2f",
+    "url": "/dist/css/app.418fdd0d.css"
   }
 ];

@@ -18,7 +18,7 @@ import (
 
 var (
 	pcsCommandVerbose = pcsverbose.New("PCSCOMMAND")
-	Version           = "3.5.8"
+	Version           = "3.5.9"
 )
 
 

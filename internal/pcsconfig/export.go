@@ -3,6 +3,7 @@ package pcsconfig
 import (
 	"fmt"
 	"github.com/iikira/BaiduPCS-Go/baidupcs"
+	"github.com/iikira/BaiduPCS-Go/baidupcs/dlinkclient"
 	"github.com/iikira/BaiduPCS-Go/pcstable"
 	"github.com/iikira/BaiduPCS-Go/requester"
 	"github.com/olekukonko/tablewriter"
@@ -27,6 +28,7 @@ type pcsConfigJSONExport struct {
 	EnableHTTPS bool   `json:"enable_https"` // 启用https
 	Proxy       string `json:"proxy"`        // 代理
 	AccessPass  string `json:"access_pass"`  // 登录密码
+	LocalAddrs  string `json:"local_addrs"`
 }
 
 // ActiveUser 获取当前登录的用户
@@ -56,6 +58,16 @@ func (c *PCSConfig) HTTPClient() *requester.HTTPClient {
 	client.SetHTTPSecure(c.enableHTTPS)
 	client.SetUserAgent(c.userAgent)
 	return client
+}
+
+// DlinkClient 返回设置好的DlinkClient
+func (c *PCSConfig) DlinkClient() *dlinkclient.DlinkClient {
+	if c.dc == nil {
+		dc := dlinkclient.NewDlinkClient()
+		dc.SetClient(c.HTTPClient())
+		c.dc = dc
+	}
+	return c.dc
 }
 
 // NumLogins 获取登录的用户数量
@@ -113,6 +125,11 @@ func (c *PCSConfig) AccessPass() string {
 	return c.accessPass
 }
 
+// LocalAddrs 返回localAddrs
+func (c *PCSConfig) LocalAddrs() string {
+	return c.localAddrs
+}
+
 // AverageParallel 返回平均的下载最大并发量
 func (c *PCSConfig) AverageParallel() int {
 	return AverageParallel(c.maxParallel, c.maxDownloadLoad)
@@ -133,6 +150,7 @@ func (c *PCSConfig) PrintTable() {
 		[]string{"enable_https", fmt.Sprint(c.enableHTTPS), "true", "启用 https"},
 		[]string{"user_agent", c.userAgent, "", "浏览器标识"},
 		[]string{"proxy", c.proxy, "", "设置代理, 支持 http/socks5 代理"},
+		[]string{"local_addrs", c.localAddrs, "", "设置本地网卡地址, 多个地址用逗号隔开"},
 	})
 	tb.Render()
 }

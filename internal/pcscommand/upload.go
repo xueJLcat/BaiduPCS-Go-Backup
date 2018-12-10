@@ -63,10 +63,6 @@ func RunRapidUpload(targetPath, contentMD5, sliceMD5, crc32 string, length int64
 		fmt.Printf("警告: %s, 获取网盘路径 %s 错误, %s\n", baidupcs.OperationRapidUpload, targetPath, err)
 	}
 
-	if sliceMD5 == "" {
-		sliceMD5 = baidupcs.FixSliceMD5(sliceMD5)
-	}
-
 	err = GetBaiduPCS().RapidUpload(targetPath, contentMD5, sliceMD5, crc32, length)
 	if err != nil {
 		fmt.Printf("%s失败, 消息: %s\n", baidupcs.OperationRapidUpload, err)
@@ -165,7 +161,7 @@ func RunUpload(localPaths []string, savePath string, opt *UploadOptions) {
 						MaxRetry: opt.MaxRetry,
 					},
 					uploadInfo: checksum.NewLocalFileInfo(walkedFiles[k3], int(requiredSliceSize)),
-					savePath:   path.Clean(savePath + "/" + subSavePath),
+					savePath:   path.Clean(savePath + baidupcs.PathSeparator + subSavePath),
 				})
 
 				fmt.Printf("[%d] 加入上传队列: %s\n", lastID, walkedFiles[k3])
@@ -247,7 +243,6 @@ func RunUpload(localPaths []string, savePath string, opt *UploadOptions) {
 			}
 			defer task.uploadInfo.Close() // 关闭文件
 
-			// 步骤控制
 			var (
 				panDir, panFile = path.Split(task.savePath)
 			)
@@ -265,7 +260,13 @@ func RunUpload(localPaths []string, savePath string, opt *UploadOptions) {
 				goto stepControl
 			}
 
-		stepControl:
+			if task.uploadInfo.Length > baidupcs.MaxRapidUploadSize {
+				fmt.Printf("[%d] 文件超过20GB, 无法使用秒传功能, 跳过秒传...\n", task.ID)
+				task.step = StepUploadUpload
+				goto stepControl
+			}
+
+		stepControl: // 步骤控制
 			switch task.step {
 			case StepUploadRapidUpload:
 				goto stepUploadRapidUpload
@@ -296,7 +297,7 @@ func RunUpload(localPaths []string, savePath string, opt *UploadOptions) {
 				// 检测缓存, 通过文件的md5值判断本地文件和网盘文件是否一样
 				if fdl != nil {
 					for _, fd := range fdl {
-						if strings.Compare(fd.Filename, panFile) == 0 {
+						if fd.Filename == panFile {
 							decodedMD5, _ := hex.DecodeString(fd.MD5)
 							if bytes.Compare(decodedMD5, task.uploadInfo.MD5) == 0 {
 								fmt.Printf("[%d] 目标文件, %s, 已存在, 跳过...\n", task.ID, task.savePath)
@@ -313,7 +314,6 @@ func RunUpload(localPaths []string, savePath string, opt *UploadOptions) {
 				// do nothing
 			}
 
-			// 经过测试, 秒传文件并非需要前256kb切片的md5值, 只需格式符合即可
 			task.uploadInfo.SliceMD5Sum()
 
 			// 经测试, 文件的 crc32 值并非秒传文件所必需
@@ -393,11 +393,21 @@ func RunUpload(localPaths []string, savePath string, opt *UploadOptions) {
 				muer.OnError(func(err error) {
 					close(exitChan)
 					pcsError, ok := err.(pcserror.Error)
-					if ok {
-						handleTaskErr(task, "上传文件失败", pcsError)
+					if !ok {
+						fmt.Printf("[%d] 上传文件错误: %s\n", task.ID, err)
 						return
 					}
-					fmt.Printf("[%d] 上传文件错误: %s\n", task.ID, err)
+
+					switch pcsError.GetRemoteErrCode() {
+					case 31363: // block miss in superfile2, 上传状态过期
+						uploadDatabase.Delete(&task.uploadInfo.LocalFileMeta)
+						uploadDatabase.Save()
+						fmt.Printf("[%d] 上传文件错误: 上传状态过期, 请重新上传\n", task.ID)
+						return
+					}
+
+					handleTaskErr(task, "上传文件失败", pcsError)
+					return
 				})
 				muer.Execute()
 			}

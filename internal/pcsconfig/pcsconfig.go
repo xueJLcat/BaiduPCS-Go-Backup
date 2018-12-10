@@ -3,6 +3,7 @@ package pcsconfig
 
 import (
 	"github.com/iikira/BaiduPCS-Go/baidupcs"
+	"github.com/iikira/BaiduPCS-Go/baidupcs/dlinkclient"
 	"github.com/iikira/BaiduPCS-Go/pcsutil"
 	"github.com/iikira/BaiduPCS-Go/pcsverbose"
 	"github.com/iikira/BaiduPCS-Go/requester"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"unsafe"
 )
@@ -43,12 +45,14 @@ type PCSConfig struct {
 	enableHTTPS       bool   // 启用https
 	proxy             string // 代理
 	accessPass        string // 密码启动
+	localAddrs        string // 本地网卡地址
 
 	configFilePath string
 	configFile     *os.File
 	fileMu         sync.Mutex
 	activeUser     *Baidu
 	pcs            *baidupcs.BaiduPCS
+	dc             *dlinkclient.DlinkClient
 }
 
 // NewConfig 返回 PCSConfig 指针对象
@@ -144,6 +148,8 @@ func (c *PCSConfig) init() error {
 
 	// 设置全局代理
 	requester.SetGlobalProxy(c.proxy)
+	// 设置本地网卡地址
+	requester.SetLocalTCPAddrList(strings.Split(c.localAddrs, ",")...)
 
 	return nil
 }

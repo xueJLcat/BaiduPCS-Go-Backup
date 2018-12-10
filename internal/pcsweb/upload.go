@@ -66,10 +66,6 @@ func RunRapidUpload(targetPath, contentMD5, sliceMD5, crc32 string, length int64
 		fmt.Printf("警告: %s, 获取网盘路径 %s 错误, %s\n", baidupcs.OperationRapidUpload, targetPath, err)
 	}
 
-	if sliceMD5 == "" {
-		sliceMD5 = baidupcs.FixSliceMD5(sliceMD5)
-	}
-
 	err = pcscommand.GetBaiduPCS().RapidUpload(targetPath, contentMD5, sliceMD5, crc32, length)
 	if err != nil {
 		fmt.Printf("%s失败, 消息: %s\n", baidupcs.OperationRapidUpload, err)

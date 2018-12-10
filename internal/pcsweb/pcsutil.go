@@ -59,6 +59,27 @@ func PasswordHandle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func LoginHandle(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	bduss := r.Form.Get("bduss")
+	b, err := pcsconfig.Config.SetupUserByBDUSS(bduss, "", "")
+	if err != nil {
+		sendHttpErrorResponse(w, -2, "BDUSS登录失败: "+err.Error())
+		return
+	}
+
+	pcsconfig.Config.SwitchUser(&pcsconfig.BaiduBase{
+		Name: b.Name,
+	})
+
+	if err = pcsconfig.Config.Save(); err != nil {
+		sendHttpErrorResponse(w, -2, "保存配置错误: "+err.Error())
+		return
+	}
+
+	sendHttpResponse(w, "账户登录成功", b)
+}
+
 func UserHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	method := r.Form.Get("method")
@@ -96,24 +117,6 @@ func UserHandle(w http.ResponseWriter, r *http.Request) {
 
 		activeUser := pcsconfig.Config.ActiveUser()
 		sendHttpResponse(w, "", activeUser)
-	case "login":
-		bduss := r.Form.Get("bduss")
-		b, err := pcsconfig.Config.SetupUserByBDUSS(bduss, "", "")
-		if err != nil {
-			sendHttpErrorResponse(w, -2, "BDUSS登录失败: "+err.Error())
-			return
-		}
-
-		pcsconfig.Config.SwitchUser(&pcsconfig.BaiduBase{
-			Name: b.Name,
-		})
-
-		if err = pcsconfig.Config.Save(); err != nil {
-			sendHttpErrorResponse(w, -2, "保存配置错误: "+err.Error())
-			return
-		}
-
-		sendHttpResponse(w, "账户登录成功", b)
 	}
 }
 
@@ -357,7 +360,7 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 			Name:   "配置文件目录",
 			EnName: "config_dir",
 			Value:  envVar,
-			Desc:   "配置文件的储存目录",
+			Desc:   "配置文件的储存目录，更改无效",
 		})
 		sendHttpResponse(w, "", configJsons)
 	}

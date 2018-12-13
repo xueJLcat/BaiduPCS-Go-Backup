@@ -22,7 +22,7 @@ func StartServer(port uint) error {
 	http.HandleFunc("/", rootMiddleware)
 	http.HandleFunc("/index.html", middleware(indexPage))
 
-	http.HandleFunc("/api/v1/login", activeAuthMiddleware(LoginHandle))
+	http.HandleFunc("/api/v1/login", LoginHandle)
 	http.HandleFunc("/api/v1/logout", activeAuthMiddleware(LogoutHandle))
 	http.HandleFunc("/api/v1/password", activeAuthMiddleware(PasswordHandle))
 	http.HandleFunc("/api/v1/user", activeAuthMiddleware(UserHandle))

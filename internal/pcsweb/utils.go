@@ -5,6 +5,7 @@ import (
 	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
 	"html/template"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -85,13 +86,17 @@ func boxTmplParse(name string, fileNames ...string) (tmpl *template.Template) {
 func ListLocalDir(dirPth string, suffix string) (files FileDescs, err error) {
 	files = make(FileDescs, 0, 10)
 
+	if dirPth == "." {
+		dirPth, _ = filepath.Abs(filepath.Dir(os.Args[0]))
+	}
+
+	dirPth = strings.Replace(dirPth, "\\", "/", -1)
+
+
 	dir, err := ioutil.ReadDir(dirPth)
 	if err != nil {
 		return nil, err
 	}
-
-	dirPth, _ = filepath.Abs(dirPth)
-	dirPth = strings.Replace(dirPth, "\\", "/", -1)
 
 	var suffixFlag = false
 	if suffix == "" {

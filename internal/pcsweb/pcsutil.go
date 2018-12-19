@@ -19,7 +19,7 @@ import (
 
 var (
 	pcsCommandVerbose = pcsverbose.New("PCSCOMMAND")
-	Version           = "3.5.9"
+	Version           = "3.6.1"
 )
 
 func PasswordHandle(w http.ResponseWriter, r *http.Request) {
@@ -404,7 +404,7 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			sendHttpErrorResponse(w, -2, "查找版本更新失败")
 		}
-
+		fmt.Println(string(body))
 		sendHttpResponse(w, "", string(body))
 	}
 	if rmethod == "notice" {

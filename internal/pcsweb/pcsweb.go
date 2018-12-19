@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"github.com/GeertJohan/go.rice"
 	"golang.org/x/net/websocket"
+	"html/template"
 	"net/http"
 )
 
 var distBox *rice.Box
+var distMobileBox *rice.Box
 
 // StartServer 开启web服务
 func StartServer(port uint) error {
@@ -19,7 +21,12 @@ func StartServer(port uint) error {
 	distBox = rice.MustFindBox("dist") // go.rice 文件盒子
 	http.Handle("/dist/", http.StripPrefix("/dist/", http.FileServer(distBox.HTTPBox())))
 
+	distMobileBox = rice.MustFindBox("dist_mobile") // go.rice 文件盒子
+	http.Handle("/dist_mobile/", http.StripPrefix("/dist_mobile/", http.FileServer(distMobileBox.HTTPBox())))
+
+
 	http.HandleFunc("/", rootMiddleware)
+	http.HandleFunc("/dist_mobile", middleware(indexMobilePage))
 	http.HandleFunc("/index.html", middleware(indexPage))
 
 	http.HandleFunc("/api/v1/login", LoginHandle)
@@ -46,5 +53,11 @@ func indexPage(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
 	tmpl := boxTmplParse("index", "index.html")
+	tmpl.Execute(w, nil)
+}
+
+func indexMobilePage(w http.ResponseWriter, r *http.Request) {
+	tmpl := template.New("index")
+	tmpl.Parse(distMobileBox.MustString("index.html"))
 	tmpl.Execute(w, nil)
 }

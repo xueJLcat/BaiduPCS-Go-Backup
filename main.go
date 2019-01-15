@@ -2,18 +2,19 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	_ "github.com/iikira/BaiduPCS-Go/internal/pcsinit"
-	"github.com/iikira/BaiduPCS-Go/pcsutil"
-	"github.com/iikira/BaiduPCS-Go/requester"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsweb"
+	"github.com/iikira/BaiduPCS-Go/pcsutil"
 	"github.com/iikira/BaiduPCS-Go/pcsverbose"
+	"github.com/iikira/BaiduPCS-Go/requester"
 	"github.com/urfave/cli"
+	"os"
+	"os/exec"
 )
 
 var (
-	Version = "3.6.1"
+	Version  = "3.6.2"
 	reloadFn = func(c *cli.Context) error {
 		err := pcsconfig.Config.Reload()
 		if err != nil {
@@ -47,11 +48,11 @@ func main() {
 	app.Name = "BaiduPCS-Go"
 	app.Version = Version
 	liuzhuoling := cli.Author{
-		Name: "liuzhuoling",
+		Name:  "liuzhuoling",
 		Email: "liuzhuoling2011@hotmail.com",
 	}
 	iikira := cli.Author{
-		Name: "iikira",
+		Name:  "iikira",
 		Email: "i@mail.iikira.com",
 	}
 	app.Authors = []cli.Author{liuzhuoling, iikira}
@@ -66,8 +67,11 @@ func main() {
 	}
 	app.Action = func(c *cli.Context) {
 		fmt.Printf("打开浏览器, 输入 http://localhost:5299 查看效果\n")
-		if err := pcsweb.StartServer(5299); err != nil{
+		if err := pcsweb.StartServer(5299); err != nil {
 			fmt.Println(err.Error())
+		} else {
+			cmd := exec.Command("cmd", " /c start http://localhost:5299")
+			cmd.Start()
 		}
 	}
 	app.Commands = []cli.Command{
@@ -116,4 +120,3 @@ func main() {
 
 	app.Run(os.Args)
 }
-

@@ -2,14 +2,14 @@
     "FixedFileInfo": {
         "FileVersion": {
             "Major": 3,
-            "Minor": 5,
-            "Patch": 6,
+            "Minor": 6,
+            "Patch": 1,
             "Build": 0
         },
         "ProductVersion": {
             "Major": 3,
-            "Minor": 5,
-            "Patch": 6,
+            "Minor": 6,
+            "Patch": 1,
             "Build": 0
         },
         "FileFlagsMask": "3f",
@@ -20,16 +20,16 @@
     },
     "StringFileInfo": {
         "Comments": "",
-        "CompanyName": "iikira",
+        "CompanyName": "liuzhuoling",
         "FileDescription": "百度网盘客户端",
-        "FileVersion": "v3.5.6",
+        "FileVersion": "v3.6.1",
         "InternalName": "",
-        "LegalCopyright": "© 2016-2018 iikira.",
+        "LegalCopyright": "© 2016-2018 liuzhuoling.",
         "LegalTrademarks": "",
         "OriginalFilename": "",
         "PrivateBuild": "",
-        "ProductName": "BaiduPCS-Go",
-        "ProductVersion": "v3.5.6",
+        "ProductName": "BaiduPCS-Go-Web",
+        "ProductVersion": "v3.6.2",
         "SpecialBuild": ""
     },
     "VarFileInfo": {

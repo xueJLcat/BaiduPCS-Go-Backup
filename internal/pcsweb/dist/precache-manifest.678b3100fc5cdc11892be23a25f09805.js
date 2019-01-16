@@ -16,16 +16,16 @@ self.__precacheManifest = [
     "url": "/dist/css/chunk-vendors.485309ac.css"
   },
   {
-    "revision": "fb4c36c66ae4b9f8eff1",
-    "url": "/dist/js/download.aca90027.js"
+    "revision": "483ccfe47860a5b65d6a",
+    "url": "/dist/js/download.95382919.js"
   },
   {
     "revision": "c64d8255b1259bda3e716f464d2062d4",
     "url": "/dist/img/login-bg.c64d8255.jpg"
   },
   {
-    "revision": "99fbc307c6774dafabe6",
-    "url": "/dist/js/app.d8f648f4.js"
+    "revision": "41c8802709fc1083a518",
+    "url": "/dist/js/app.58b83eb7.js"
   },
   {
     "revision": "c4ca8bdda957b2ffe432",
@@ -40,7 +40,7 @@ self.__precacheManifest = [
     "url": "/dist/img/logo.7b2b7127.png"
   },
   {
-    "revision": "58691b36943091d89bc164708f938166",
+    "revision": "2e887f3e5be7876b3124c7ae6e7dd734",
     "url": "/dist/index.html"
   },
   {
@@ -48,7 +48,7 @@ self.__precacheManifest = [
     "url": "/dist/img/logo.png"
   },
   {
-    "revision": "99fbc307c6774dafabe6",
-    "url": "/dist/css/app.2e7d0eb4.css"
+    "revision": "41c8802709fc1083a518",
+    "url": "/dist/css/app.02a79740.css"
   }
 ];

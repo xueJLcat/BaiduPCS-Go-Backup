@@ -12,7 +12,7 @@ self.__precacheManifest = [
     "url": "/dist/fonts/ionicons.d535a25a.ttf"
   },
   {
-    "revision": "c4ca8bdda957b2ffe432",
+    "revision": "57e9ea6016e0a3c6d931",
     "url": "/dist/css/chunk-vendors.485309ac.css"
   },
   {
@@ -24,12 +24,12 @@ self.__precacheManifest = [
     "url": "/dist/img/login-bg.c64d8255.jpg"
   },
   {
-    "revision": "41c8802709fc1083a518",
-    "url": "/dist/js/app.58b83eb7.js"
+    "revision": "b8e271b3ef6d4f6a5ba2",
+    "url": "/dist/js/app.38b66acf.js"
   },
   {
-    "revision": "c4ca8bdda957b2ffe432",
-    "url": "/dist/js/chunk-vendors.bc2bd967.js"
+    "revision": "57e9ea6016e0a3c6d931",
+    "url": "/dist/js/chunk-vendors.1b1ace1e.js"
   },
   {
     "revision": "99ac3308dd8ee14f749f51538d0d5b9e",
@@ -40,7 +40,7 @@ self.__precacheManifest = [
     "url": "/dist/img/logo.7b2b7127.png"
   },
   {
-    "revision": "2e887f3e5be7876b3124c7ae6e7dd734",
+    "revision": "f7a65defafc6e81fa66efb78a9d57b44",
     "url": "/dist/index.html"
   },
   {
@@ -48,7 +48,7 @@ self.__precacheManifest = [
     "url": "/dist/img/logo.png"
   },
   {
-    "revision": "41c8802709fc1083a518",
+    "revision": "b8e271b3ef6d4f6a5ba2",
     "url": "/dist/css/app.02a79740.css"
   }
 ];

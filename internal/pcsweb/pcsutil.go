@@ -19,7 +19,7 @@ import (
 
 var (
 	pcsCommandVerbose = pcsverbose.New("PCSCOMMAND")
-	Version           = "3.6.3"
+	Version           = "3.6.4"
 )
 
 func PasswordHandle(w http.ResponseWriter, r *http.Request) {

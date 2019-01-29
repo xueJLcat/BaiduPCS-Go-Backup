@@ -352,6 +352,12 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 			Value:  config.SaveDir(),
 			Desc:   "下载文件的储存目录",
 		})
+		configJsons = append(configJsons, pcsConfigJSON{
+			Name:   "工作目录",
+			EnName: "workdir",
+			Value:  pcsconfig.Config.ActiveUser().Workdir,
+			Desc:   "程序启动时打开的目录，例如 /apps/baidu_shurufa",
+		})
 		envVar, ok := os.LookupEnv(pcsconfig.EnvConfigDir)
 		if !ok {
 			envVar = pcsconfig.GetConfigDir()
@@ -375,6 +381,12 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 		_, err := ioutil.ReadDir(savedir)
 		if err != nil {
 			sendHttpErrorResponse(w, -1, "输入的文件夹路径错误")
+			return
+		}
+		workdir := r.Form.Get("workdir")
+		err = pcscommand.RunChangeDirectory(workdir, false)
+		if err != nil {
+			sendHttpErrorResponse(w, -1, "设置的百度云目录不存在，请检查")
 			return
 		}
 

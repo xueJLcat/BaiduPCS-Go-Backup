@@ -7,23 +7,23 @@ import (
 )
 
 // RunChangeDirectory 执行更改工作目录
-func RunChangeDirectory(targetPath string, isList bool) {
+func RunChangeDirectory(targetPath string, isList bool) error {
 	pcs := GetBaiduPCS()
 	err := matchPathByShellPatternOnce(&targetPath)
 	if err != nil {
 		fmt.Println(err)
-		return
+		return err
 	}
 
 	data, err := pcs.FilesDirectoriesMeta(targetPath)
 	if err != nil {
 		fmt.Println(err)
-		return
+		return err
 	}
 
 	if !data.Isdir {
 		fmt.Printf("错误: %s 不是一个目录 (文件夹)\n", targetPath)
-		return
+		return err
 	}
 
 	GetActiveUser().Workdir = targetPath
@@ -34,4 +34,5 @@ func RunChangeDirectory(targetPath string, isList bool) {
 	if isList {
 		RunLs(".", nil, baidupcs.DefaultOrderOptions)
 	}
+	return nil
 }

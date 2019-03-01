@@ -128,49 +128,41 @@ func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *
 	)
 
 	for k := range localPaths {
-		globedPaths, err := filepath.Glob(localPaths[k])
+		walkedFiles, err := pcsutil.WalkDir(localPaths[k], "")
 		if err != nil {
-			fmt.Printf("上传文件, 匹配本地路径失败, %s\n", err)
+			fmt.Printf("警告: %s\n", err)
 			continue
 		}
 
-		for k2 := range globedPaths {
-			walkedFiles, err := pcsutil.WalkDir(globedPaths[k2], "")
-			if err != nil {
-				fmt.Printf("警告: %s\n", err)
-				continue
+		for k3 := range walkedFiles {
+			// 针对 windows 的目录处理
+			if os.PathSeparator == '\\' {
+				walkedFiles[k3] = pcsutil.ConvertToUnixPathSeparator(walkedFiles[k3])
+				globedPathDir = pcsutil.ConvertToUnixPathSeparator(filepath.Dir(localPaths[k]))
+			} else {
+				globedPathDir = filepath.Dir(localPaths[k])
 			}
 
-			for k3 := range walkedFiles {
-				// 针对 windows 的目录处理
-				if os.PathSeparator == '\\' {
-					walkedFiles[k3] = pcsutil.ConvertToUnixPathSeparator(walkedFiles[k3])
-					globedPathDir = pcsutil.ConvertToUnixPathSeparator(filepath.Dir(globedPaths[k2]))
-				} else {
-					globedPathDir = filepath.Dir(globedPaths[k2])
-				}
-
-				// 避免去除文件名开头的"."
-				if globedPathDir == "." {
-					globedPathDir = ""
-				}
-
-				subSavePath = strings.TrimPrefix(walkedFiles[k3], globedPathDir)
-
-				lastID++
-				ulist.PushBack(&utask{
-					ListTask: ListTask{
-						ID:       lastID,
-						MaxRetry: opt.MaxRetry,
-					},
-					uploadInfo: checksum.NewLocalFileInfo(walkedFiles[k3], int(requiredSliceSize)),
-					savePath:   path.Clean(savePath + "/" + subSavePath),
-				})
-
-				fmt.Printf("[%d] 加入上传队列: %s\n", lastID, walkedFiles[k3])
-				MsgBody = fmt.Sprintf("{\"LastID\": %d, \"path\": \"%s\"}", lastID, walkedFiles[k3])
-				sendResponse(conn, 3, 1, "添加进任务队列", MsgBody)
+			// 避免去除文件名开头的"."
+			if globedPathDir == "." {
+				globedPathDir = ""
 			}
+
+			subSavePath = strings.TrimPrefix(walkedFiles[k3], globedPathDir)
+
+			lastID++
+			ulist.PushBack(&utask{
+				ListTask: ListTask{
+					ID:       lastID,
+					MaxRetry: opt.MaxRetry,
+				},
+				uploadInfo: checksum.NewLocalFileInfo(walkedFiles[k3], int(requiredSliceSize)),
+				savePath:   path.Clean(savePath + "/" + subSavePath),
+			})
+
+			fmt.Printf("[%d] 加入上传队列: %s\n", lastID, walkedFiles[k3])
+			MsgBody = fmt.Sprintf("{\"LastID\": %d, \"path\": \"%s\"}", lastID, walkedFiles[k3])
+			sendResponse(conn, 3, 1, "添加进任务队列", MsgBody)
 		}
 	}
 

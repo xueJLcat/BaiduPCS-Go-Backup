@@ -82,7 +82,7 @@ func main() {
 			}
 		}
 
-		if err := pcsweb.StartServer(5299); err != nil {
+		if err := pcsweb.StartServer(5299, true); err != nil {
 			fmt.Println(err.Error())
 		}
 	}
@@ -94,7 +94,7 @@ func main() {
 			Before:   reloadFn,
 			Action: func(c *cli.Context) error {
 				fmt.Printf("打开浏览器, 输入: http://localhost:%d 查看效果\n", c.Uint("port"))
-				fmt.Println(pcsweb.StartServer(c.Uint("port")))
+				fmt.Println(pcsweb.StartServer(c.Uint("port"), c.Bool("access")))
 				return nil
 			},
 			Flags: []cli.Flag{
@@ -102,6 +102,11 @@ func main() {
 					Name:  "port",
 					Usage: "自定义端口",
 					Value: 5299,
+				},
+				cli.BoolFlag{
+					Name:  "access",
+					Usage: "是否允许外网访问",
+					Hidden: false,
 				},
 			},
 		},

@@ -13,7 +13,7 @@ var distBox *rice.Box
 var distMobileBox *rice.Box
 
 // StartServer 开启web服务
-func StartServer(port uint) error {
+func StartServer(port uint, access bool) error {
 	if port <= 0 || port > 65535 {
 		return fmt.Errorf("invalid port %d", port)
 	}
@@ -47,7 +47,11 @@ func StartServer(port uint) error {
 	http.HandleFunc("/api/v1/files", activeAuthMiddleware(fileList))
 
 	http.Handle("/ws", websocket.Handler(WSHandler))
-	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+	if access {
+		return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+	}
+	fmt.Println("现在只监听localhost，请注意")
+	return http.ListenAndServe(fmt.Sprintf("localhost:%d", port), nil)
 }
 
 func indexPage(w http.ResponseWriter, r *http.Request) {

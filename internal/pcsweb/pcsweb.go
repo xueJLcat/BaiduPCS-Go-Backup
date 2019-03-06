@@ -40,6 +40,7 @@ func StartServer(port uint) error {
 	http.HandleFunc("/api/v1/offline_download", activeAuthMiddleware(OfflineDownloadHandle))
 	http.HandleFunc("/api/v1/search", activeAuthMiddleware(SearchHandle))
 	http.HandleFunc("/api/v1/setting", activeAuthMiddleware(SettingHandle))
+	http.HandleFunc("/api/v1/options", activeAuthMiddleware(OptionsHandle))
 	http.HandleFunc("/api/v1/local_file", activeAuthMiddleware(LocalFileHandle))
 	http.HandleFunc("/api/v1/file_operation", activeAuthMiddleware(FileOperationHandle))
 	http.HandleFunc("/api/v1/mkdir", activeAuthMiddleware(MkdirHandle))

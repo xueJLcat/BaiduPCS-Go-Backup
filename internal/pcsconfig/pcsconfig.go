@@ -31,6 +31,16 @@ var (
 	Config = NewConfig(configFilePath)
 )
 
+type CDownloadOptions struct {
+	IsExecutedPermission   bool
+	IsOverwrite            bool
+	IsShareDownload        bool
+	IsLocateDownload       bool
+	IsLocatePanAPIDownload bool
+	IsStreaming            bool
+	NoCheck                bool
+}
+
 // PCSConfig 配置详情
 type PCSConfig struct {
 	baiduActiveUID    uint64
@@ -46,6 +56,8 @@ type PCSConfig struct {
 	proxy             string // 代理
 	accessPass        string // 密码启动
 	localAddrs        string // 本地网卡地址
+
+	downloadOpts   CDownloadOptions
 
 	configFilePath string
 	configFile     *os.File
@@ -95,12 +107,17 @@ func (c *PCSConfig) Save() error {
 
 	c.fileMu.Lock()
 	defer c.fileMu.Unlock()
-
 	data, err := jsoniter.MarshalIndent((*pcsConfigJSONExport)(unsafe.Pointer(c)), "", " ")
 	if err != nil {
 		// json数据生成失败
 		panic(err)
 	}
+	//var test string = string(data[:])
+	//fmt.Print(test)
+	//
+	//data, err = jsoniter.MarshalIndent((*pcsConfigJSONExport)(unsafe.Pointer(c)).downloadOpts, "", " ")
+	//test = string(data[:])
+	//fmt.Print(test)
 
 	// 减掉多余的部分
 	err = c.configFile.Truncate(int64(len(data)))
@@ -219,6 +236,7 @@ func (c *PCSConfig) initDefaultConfig() {
 	c.maxDownloadLoad = 1
 	c.userAgent = "netdisk;8.3.1;android-android"
 	c.accessPass = ""
+	c.downloadOpts = CDownloadOptions{}
 
 	// 设置默认的下载路径
 	switch runtime.GOOS {

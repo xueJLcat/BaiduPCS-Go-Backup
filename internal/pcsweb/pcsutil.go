@@ -302,10 +302,84 @@ func ShareHandle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func OptionsHandle(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	rmethod := r.Form.Get("method")
+	rtype := r.Form.Get("type")
+	pcsCommandVerbose.Info("配置: " + rmethod)
+
+	configJsons := make([]pcsOptsJSON, 0, 10)
+	config := pcsconfig.Config
+	if rmethod == "get" {
+		if rtype == "download" {
+			opts := config.DownloadOpts()
+			configJsons = append(configJsons, pcsOptsJSON{
+				Name:   "no_check",
+				Value:  opts.NoCheck,
+				Desc:   "下载文件完成后不校验文件",
+			})
+			configJsons = append(configJsons, pcsOptsJSON{
+				Name:   "overwrite",
+				Value:  opts.IsOverwrite,
+				Desc:   "下载时覆盖已存在的文件",
+			})
+			configJsons = append(configJsons, pcsOptsJSON{
+				Name:   "add_x",
+				Value:  opts.IsExecutedPermission,
+				Desc:   "为文件加上执行权限, (windows系统无效)",
+			})
+			configJsons = append(configJsons, pcsOptsJSON{
+				Name:   "stream",
+				Value:  opts.IsStreaming,
+				Desc:   "以流式文件的方式下载",
+			})
+			configJsons = append(configJsons, pcsOptsJSON{
+				Name:   "share",
+				Value:  opts.IsShareDownload,
+				Desc:   "以分享文件的方式获取下载链接来下载",
+			})
+			configJsons = append(configJsons, pcsOptsJSON{
+				Name:   "locate",
+				Value:  opts.IsLocateDownload,
+				Desc:   "以获取直链的方式来下载",
+			})
+			configJsons = append(configJsons, pcsOptsJSON{
+				Name:   "locate_pan",
+				Value:  opts.IsLocatePanAPIDownload,
+				Desc:   "从百度网盘首页获取直链来下载, 该下载方式需配合第三方服务器, 机密文件切勿使用此下载方式",
+			})
+			sendHttpResponse(w, "", configJsons)
+		}
+	}
+	if rmethod == "set" {
+		if rtype == "download" {
+			no_check , _ := strconv.ParseBool(r.Form.Get("no_check"))
+			overwrite , _ := strconv.ParseBool(r.Form.Get("overwrite"))
+			add_x , _ := strconv.ParseBool(r.Form.Get("add_x"))
+			stream , _ := strconv.ParseBool(r.Form.Get("stream"))
+			share , _ := strconv.ParseBool(r.Form.Get("share"))
+			locate , _ := strconv.ParseBool(r.Form.Get("locate"))
+			locate_pan , _ := strconv.ParseBool(r.Form.Get("locate_pan"))
+			opt := pcsconfig.CDownloadOptions{
+				NoCheck: no_check,
+				IsOverwrite: overwrite,
+				IsExecutedPermission: add_x,
+				IsStreaming: stream,
+				IsShareDownload: share,
+				IsLocateDownload: locate,
+				IsLocatePanAPIDownload: locate_pan,
+			}
+			config.SetDownloadOpts(opt)
+			config.Save()
+			sendHttpResponse(w, "success", configJsons)
+		}
+	}
+}
+
 func SettingHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	rmethod := r.Form.Get("method")
-	pcsCommandVerbose.Info("设置:" + rmethod)
+	pcsCommandVerbose.Info("设置: " + rmethod)
 
 	config := pcsconfig.Config
 	if rmethod == "get" {

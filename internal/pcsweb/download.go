@@ -525,7 +525,7 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 			if !options.IsTest && !options.IsOverwrite && fileExist(task.savePath) {
 				fmt.Fprintf(options.Out, "[%d] 文件已经存在: %s, 跳过...\n", task.ID, task.savePath)
 				MsgBody = fmt.Sprintf("{\"LastID\": %d, \"savePath\": \"%s\"}", task.ID, task.savePath)
-				sendResponse(conn, 2, -4, "文件已经存在", MsgBody)
+				sendResponse(conn, 2, -4, "文件已经存在, 跳过...", MsgBody)
 				return
 			}
 

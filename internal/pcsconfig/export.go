@@ -23,12 +23,13 @@ type pcsConfigJSONExport struct {
 	MaxUploadParallel int `json:"max_upload_parallel"` // 最大上传并发量
 	MaxLoad           int `json:"max_download_load"`   // 同时进行下载文件的最大数量
 
-	UserAgent   string `json:"user_agent"`   // 浏览器标识
-	SaveDir     string `json:"savedir"`      // 下载储存路径
-	EnableHTTPS bool   `json:"enable_https"` // 启用https
-	Proxy       string `json:"proxy"`        // 代理
-	AccessPass  string `json:"access_pass"`  // 登录密码
-	LocalAddrs  string `json:"local_addrs"`
+	UserAgent    string           `json:"user_agent"`   // 浏览器标识
+	SaveDir      string           `json:"savedir"`      // 下载储存路径
+	EnableHTTPS  bool             `json:"enable_https"` // 启用https
+	Proxy        string           `json:"proxy"`        // 代理
+	AccessPass   string           `json:"access_pass"`  // 登录密码
+	LocalAddrs   string           `json:"local_addrs"`
+	DownloadOpts CDownloadOptions `json:"download_opts"`
 }
 
 // ActiveUser 获取当前登录的用户
@@ -128,6 +129,11 @@ func (c *PCSConfig) AccessPass() string {
 // LocalAddrs 返回localAddrs
 func (c *PCSConfig) LocalAddrs() string {
 	return c.localAddrs
+}
+
+// DownloadOpts 返回downloadOpts
+func (c *PCSConfig) DownloadOpts() CDownloadOptions {
+	return c.downloadOpts
 }
 
 // AverageParallel 返回平均的下载最大并发量

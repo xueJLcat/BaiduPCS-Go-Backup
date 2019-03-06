@@ -203,3 +203,8 @@ func (c *PCSConfig) SetLocalAddrs(localAddrs string) {
 	c.localAddrs = localAddrs
 	requester.SetLocalTCPAddrList(strings.Split(localAddrs, ",")...)
 }
+
+// SetAccessPass 设置登录密码
+func (c *PCSConfig) SetDownloadOpts(opt CDownloadOptions) {
+	c.downloadOpts = opt
+}

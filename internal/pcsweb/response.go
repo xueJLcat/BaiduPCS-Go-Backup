@@ -9,8 +9,14 @@ import (
 
 type pcsConfigJSON struct {
 	Name string `json:"name"`
-	EnName  string `json:"en_name"`
+	EnName string `json:"en_name"`
 	Value string `json:"value"`
+	Desc string `json:"desc"`
+}
+
+type pcsOptsJSON struct {
+	Name string `json:"name"`
+	Value bool `json:"value"`
 	Desc string `json:"desc"`
 }
 

@@ -30,6 +30,8 @@ type pcsConfigJSONExport struct {
 	AccessPass   string           `json:"access_pass"`  // 登录密码
 	LocalAddrs   string           `json:"local_addrs"`
 	DownloadOpts CDownloadOptions `json:"download_opts"`
+
+	Sessions     SessionMapType   `json:"sessions"`
 }
 
 // ActiveUser 获取当前登录的用户
@@ -134,6 +136,11 @@ func (c *PCSConfig) LocalAddrs() string {
 // DownloadOpts 返回downloadOpts
 func (c *PCSConfig) DownloadOpts() CDownloadOptions {
 	return c.downloadOpts
+}
+
+// SessionMap 返回sessions
+func (c *PCSConfig) SessionMap() SessionMapType {
+	return c.sessions
 }
 
 // AverageParallel 返回平均的下载最大并发量

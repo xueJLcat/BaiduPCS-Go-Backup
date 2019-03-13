@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 	"unsafe"
 )
 
@@ -23,12 +24,21 @@ const (
 	ConfigName = "pcs_config.json"
 )
 
+type SessionData struct {
+	LastAccessedTime time.Time
+	Lock             string
+}
+
+type SessionMapType map[string]*SessionData
+
 var (
 	pcsConfigVerbose = pcsverbose.New("PCSCONFIG")
 	configFilePath   = filepath.Join(GetConfigDir(), ConfigName)
 
 	// Config 配置信息, 由外部调用
 	Config = NewConfig(configFilePath)
+
+	SessionMap = make(map[string]*SessionData, 16)
 )
 
 type CDownloadOptions struct {
@@ -55,9 +65,11 @@ type PCSConfig struct {
 	enableHTTPS       bool   // 启用https
 	proxy             string // 代理
 	accessPass        string // 密码启动
+
 	localAddrs        string // 本地网卡地址
 
 	downloadOpts   CDownloadOptions
+	sessions       SessionMapType
 
 	configFilePath string
 	configFile     *os.File
@@ -97,6 +109,8 @@ func (c *PCSConfig) Close() error {
 
 // Save 保存配置信息到配置文件
 func (c *PCSConfig) Save() error {
+	c.SetSesseions(SessionMap)
+
 	// 检测配置项是否合法, 不合法则自动修复
 	c.fix()
 
@@ -112,12 +126,6 @@ func (c *PCSConfig) Save() error {
 		// json数据生成失败
 		panic(err)
 	}
-	//var test string = string(data[:])
-	//fmt.Print(test)
-	//
-	//data, err = jsoniter.MarshalIndent((*pcsConfigJSONExport)(unsafe.Pointer(c)).downloadOpts, "", " ")
-	//test = string(data[:])
-	//fmt.Print(test)
 
 	// 减掉多余的部分
 	err = c.configFile.Truncate(int64(len(data)))
@@ -237,6 +245,7 @@ func (c *PCSConfig) initDefaultConfig() {
 	c.userAgent = "netdisk;8.3.1;android-android"
 	c.accessPass = ""
 	c.downloadOpts = CDownloadOptions{}
+	c.sessions = SessionMap
 
 	// 设置默认的下载路径
 	switch runtime.GOOS {

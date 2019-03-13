@@ -23,8 +23,29 @@ func activeAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			fmt.Printf("重载配置错误: %s\n", err)
 		}
 
+		if GlobalSessions == nil || GlobalSessions.CheckLock(w, r) {
+			response := &Response{
+				Code: NeedPass,
+				Msg:  "Pease unlock first!",
+			}
+			w.Header().Set("Access-Control-Allow-Origin", "*")             //允许访问所有域
+			w.Header().Add("Access-Control-Allow-Headers", "Content-Type") //header的类型
+			w.Write(response.JSON())
+			return
+		}
+		//lock := globalSessions.CheckLock(w, r)
+		//if lock {
+		//	response := &Response{
+		//		Code: NeedPass,
+		//		Msg:  "Pease unlock first!",
+		//	}
+		//	w.Header().Set("Access-Control-Allow-Origin", "*")             //允许访问所有域
+		//	w.Header().Add("Access-Control-Allow-Headers", "Content-Type") //header的类型
+		//	w.Write(response.JSON())
+		//	return
+		//}
+
 		activeUser := pcsconfig.Config.ActiveUser()
-		//fmt.Println(activeUser)
 
 		if activeUser.Name == "" {
 			response := &Response{

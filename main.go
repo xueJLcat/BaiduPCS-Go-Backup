@@ -10,8 +10,6 @@ import (
 	"github.com/iikira/BaiduPCS-Go/requester"
 	"github.com/urfave/cli"
 	"os"
-	"os/exec"
-	"runtime"
 )
 
 var (
@@ -40,6 +38,16 @@ func init() {
 
 	// 启动缓存回收
 	requester.TCPAddrCache.GC()
+
+	if pcsweb.GlobalSessions == nil {
+		pcsweb.GlobalSessions, err = pcsweb.NewSessionManager("memory", "goSessionid", 24 * 3600)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		pcsweb.GlobalSessions.Init()
+		go pcsweb.GlobalSessions.GC()
+	}
 }
 
 func main() {
@@ -69,18 +77,18 @@ func main() {
 	app.Action = func(c *cli.Context) {
 		fmt.Printf("打开浏览器, 输入 http://localhost:5299 查看效果\n")
 		//对于Windows和Mac，调用系统默认浏览器打开 http://localhost:5299
-		var cmd *exec.Cmd
-		if runtime.GOOS == "windows" {
-			cmd = exec.Command("CMD", "/C", "start", "http://localhost:5299")
-			if err := cmd.Start(); err != nil {
-				fmt.Println(err.Error())
-			}
-		} else if runtime.GOOS == "darwin" {
-			cmd = exec.Command("open", "http://localhost:5299")
-			if err := cmd.Start(); err != nil {
-				fmt.Println(err.Error())
-			}
-		}
+		//var cmd *exec.Cmd
+		//if runtime.GOOS == "windows" {
+		//	cmd = exec.Command("CMD", "/C", "start", "http://localhost:5299")
+		//	if err := cmd.Start(); err != nil {
+		//		fmt.Println(err.Error())
+		//	}
+		//} else if runtime.GOOS == "darwin" {
+		//	cmd = exec.Command("open", "http://localhost:5299")
+		//	if err := cmd.Start(); err != nil {
+		//		fmt.Println(err.Error())
+		//	}
+		//}
 
 		if err := pcsweb.StartServer(5299, true); err != nil {
 			fmt.Println(err.Error())

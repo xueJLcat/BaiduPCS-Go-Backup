@@ -96,6 +96,9 @@ loginSuccess:
 	fmt.Println("百度帐号登录成功:", baidu.Name)
 	sendResponse(conn, 1, 7, baidu.Name, "")
 
+	println("globalSessions", GlobalSessions)
+	GlobalSessions.WebSocketUnLock(conn.Request())
+
 	err = pcsconfig.Config.Save()
 	if err != nil {
 		fmt.Printf("保存配置错误: %s\n", err)

@@ -208,3 +208,8 @@ func (c *PCSConfig) SetLocalAddrs(localAddrs string) {
 func (c *PCSConfig) SetDownloadOpts(opt CDownloadOptions) {
 	c.downloadOpts = opt
 }
+
+// SetSesseions 设置session
+func (c *PCSConfig) SetSesseions(sm SessionMapType) {
+	c.sessions = sm
+}

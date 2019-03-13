@@ -26,6 +26,14 @@ func PasswordHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	method := r.Form.Get("method")
 	switch method {
+	case "lock":
+		password := pcsconfig.Config.AccessPass()
+		if password != "" {
+			GlobalSessions.Lock(w, r)
+			sendHttpResponse(w, "success", "")
+			return
+		}
+		sendHttpErrorResponse(w, -6, "请先设置锁定密码")
 	case "exist":
 		password := pcsconfig.Config.AccessPass()
 		if password != "" {
@@ -62,6 +70,15 @@ func PasswordHandle(w http.ResponseWriter, r *http.Request) {
 func LoginHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	bduss := r.Form.Get("bduss")
+	if bduss == "" { // CheckLock
+		if GlobalSessions.CheckLock(w, r) {
+			sendHttpErrorResponse(w, -3, "需要解锁")
+		} else {
+			sendHttpResponse(w, "无需解锁", "")
+		}
+		return
+	}
+
 	b, err := pcsconfig.Config.SetupUserByBDUSS(bduss, "", "")
 	if err != nil {
 		sendHttpErrorResponse(w, -2, "BDUSS登录失败: "+err.Error())
@@ -71,6 +88,8 @@ func LoginHandle(w http.ResponseWriter, r *http.Request) {
 	pcsconfig.Config.SwitchUser(&pcsconfig.BaiduBase{
 		Name: b.Name,
 	})
+
+	GlobalSessions.UnLock(w, r)
 
 	if err = pcsconfig.Config.Save(); err != nil {
 		sendHttpErrorResponse(w, -2, "保存配置错误: "+err.Error())
@@ -524,6 +543,7 @@ func LogoutHandle(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("保存配置错误: %s\n", err)
 	}
 	fmt.Printf("保存配置成功\n")
+	GlobalSessions.SessionDestroy(w, r)
 }
 
 func LocalFileHandle(w http.ResponseWriter, r *http.Request) {

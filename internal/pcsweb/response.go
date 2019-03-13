@@ -87,6 +87,7 @@ func sendHttpResponse(w http.ResponseWriter, msg string, data interface{}) {
 }
 
 var (
+	NeedPass = -3
 	NotLogin = -4
 	LoginError = -5
 )

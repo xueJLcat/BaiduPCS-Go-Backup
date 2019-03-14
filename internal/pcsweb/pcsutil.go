@@ -68,6 +68,8 @@ func PasswordHandle(w http.ResponseWriter, r *http.Request) {
 }
 
 func LoginHandle(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Access-Control-Allow-Headers", "Content-Type") //header的类型
+
 	r.ParseForm()
 	bduss := r.Form.Get("bduss")
 	if bduss == "" { // CheckLock

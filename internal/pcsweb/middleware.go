@@ -33,17 +33,6 @@ func activeAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			w.Write(response.JSON())
 			return
 		}
-		//lock := globalSessions.CheckLock(w, r)
-		//if lock {
-		//	response := &Response{
-		//		Code: NeedPass,
-		//		Msg:  "Pease unlock first!",
-		//	}
-		//	w.Header().Set("Access-Control-Allow-Origin", "*")             //允许访问所有域
-		//	w.Header().Add("Access-Control-Allow-Headers", "Content-Type") //header的类型
-		//	w.Write(response.JSON())
-		//	return
-		//}
 
 		activeUser := pcsconfig.Config.ActiveUser()
 

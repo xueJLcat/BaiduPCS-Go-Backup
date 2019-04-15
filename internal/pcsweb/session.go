@@ -87,8 +87,8 @@ func (manager *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (se
 			Value:    url.QueryEscape(sid), //转义特殊符号@#￥%+*-等
 			Path:     "/",
 			HttpOnly: true,
-			MaxAge:   int(manager.maxLifeTime),
-			Expires:  time.Now().Add(time.Duration(manager.maxLifeTime)),
+			MaxAge:   int(time.Second * time.Duration(manager.maxLifeTime)),
+			Expires:  time.Now().Add(time.Second * time.Duration(manager.maxLifeTime)),
 			// MaxAge和Expires都可以设置cookie持久化时的过期时长，Expires是老式的过期方法，
 			// 如果可以，应该使用MaxAge设置过期时间，但有些老版本的浏览器不支持MaxAge。
 			// 如果要支持所有浏览器，要么使用Expires，要么同时使用MaxAge和Expires。
@@ -127,7 +127,7 @@ func (manager *Manager) GC() {
 	manager.lock.Lock()
 	defer manager.lock.Unlock()
 	manager.provider.SessionGC(manager.maxLifeTime)
-	time.AfterFunc(time.Duration(manager.maxLifeTime), func() { manager.GC() })
+	time.AfterFunc(time.Second * time.Duration(manager.maxLifeTime), func() { manager.GC() })
 }
 
 func (manager *Manager) Init() {

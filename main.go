@@ -50,7 +50,7 @@ func init() {
 	requester.TCPAddrCache.GC()
 
 	if pcsweb.GlobalSessions == nil {
-		pcsweb.GlobalSessions, err = pcsweb.NewSessionManager("memory", "goSessionid", 24 * 3600)
+		pcsweb.GlobalSessions, err = pcsweb.NewSessionManager("memory", "goSessionid", 90 * 24 * 3600)
 		if err != nil {
 			fmt.Println(err)
 			return

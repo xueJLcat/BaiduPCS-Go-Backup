@@ -19,7 +19,7 @@ import (
 
 var (
 	pcsCommandVerbose = pcsverbose.New("PCSCOMMAND")
-	Version           = "3.6.6"
+	Version           = "3.6.7"
 )
 
 func PasswordHandle(w http.ResponseWriter, r *http.Request) {
@@ -466,37 +466,59 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 		sendHttpResponse(w, "", configJsons)
 	}
 	if rmethod == "set" {
+		config := pcsconfig.Config
+
 		appid := r.Form.Get("appid")
+		int_value, _ := strconv.Atoi(appid)
+		if int_value != config.AppID() {
+			config.SetAppID(int_value)
+		}
+
 		enable_https := r.Form.Get("enable_https")
+		bool_value, _ := strconv.ParseBool(enable_https)
+		if bool_value != config.EnableHTTPS() {
+			config.SetEnableHTTPS(bool_value)
+		}
+
 		user_agent := r.Form.Get("user_agent")
+		if user_agent != config.UserAgent() {
+			config.SetUserAgent(user_agent)
+		}
+
 		cache_size := r.Form.Get("cache_size")
+		int_value, _ = strconv.Atoi(cache_size)
+		if int_value != config.CacheSize() {
+			config.SetCacheSize(int_value)
+		}
+
 		max_parallel := r.Form.Get("max_parallel")
+		int_value, _ = strconv.Atoi(max_parallel)
+		if int_value != config.MaxParallel() {
+			config.SetMaxParallel(int_value)
+		}
+
 		max_download_load := r.Form.Get("max_download_load")
+		int_value, _ = strconv.Atoi(max_download_load)
+		if int_value != config.MaxDownloadLoad() {
+			config.SetMaxDownloadLoad(int_value)
+		}
+
 		savedir := r.Form.Get("savedir")
 		_, err := ioutil.ReadDir(savedir)
 		if err != nil {
-			sendHttpErrorResponse(w, -1, "输入的文件夹路径错误")
+			sendHttpErrorResponse(w, -1, "输入的本地文件夹路径错误，请检查目录是否存在或者具有可写权限")
+			config.Save()
 			return
 		}
+		config.SetSaveDir(savedir)
+
 		workdir := r.Form.Get("workdir")
 		err = pcscommand.RunChangeDirectory(workdir, false)
 		if err != nil {
-			sendHttpErrorResponse(w, -1, "设置的百度云目录不存在，请检查")
+			sendHttpErrorResponse(w, -1, "设置的百度云目录不存在或者不可读，请检查appid是否有权限")
+			config.Save()
 			return
 		}
-
-		int_value, _ := strconv.Atoi(appid)
-		config.SetAppID(int_value)
-		bool_value, _ := strconv.ParseBool(enable_https)
-		config.SetEnableHTTPS(bool_value)
-		config.SetUserAgent(user_agent)
-		int_value, _ = strconv.Atoi(cache_size)
-		config.SetCacheSize(int_value)
-		int_value, _ = strconv.Atoi(max_parallel)
-		config.SetMaxParallel(int_value)
-		int_value, _ = strconv.Atoi(max_download_load)
-		config.SetMaxDownloadLoad(int_value)
-		config.SetSaveDir(savedir)
 		config.Save()
 	}
 	if rmethod == "update" {

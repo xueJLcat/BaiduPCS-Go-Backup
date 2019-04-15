@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	Version  = "3.6.6"
+	Version  = "3.6.7"
 	reloadFn = func(c *cli.Context) error {
 		err := pcsconfig.Config.Reload()
 		if err != nil {

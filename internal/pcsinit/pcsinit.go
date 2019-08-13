@@ -2,13 +2,16 @@
 package pcsinit
 
 import (
+	"fmt"
 	"github.com/urfave/cli"
 	_ "unsafe" // for go:linkname
 )
 
+//go:linkname helpCommand1 github.com/iikira/BaiduPCS-Go/vendor/github.com/urfave/cli.helpCommand
+//go:linkname helpCommand2 github.com/urfave/cli.helpCommand
 var (
-	//go:linkname helpCommand github.com/iikira/BaiduPCS-Go/vendor/github.com/urfave/cli.helpCommand
-	helpCommand cli.Command
+	helpCommand1 cli.Command
+	helpCommand2 cli.Command
 )
 
 func init() {
@@ -75,5 +78,21 @@ OPTIONS:
 	{{end}}{{end}}
 `
 
-	helpCommand.Aliases = append(helpCommand.Aliases, []string{"?", "？"}...)
+	helpCommand1.Aliases = append(helpCommand1.Aliases, []string{"?", "？"}...)
+	helpCommand1.Action = func(c *cli.Context) error {
+		args := c.Args()
+		if args.Present() {
+			err := cli.ShowCommandHelp(c, args.First())
+			if err != nil {
+				fmt.Printf("%s\n", err)
+			}
+			return nil
+		}
+
+		cli.ShowAppHelp(c)
+		return nil
+	}
+
+	helpCommand2.Aliases = helpCommand1.Aliases
+	helpCommand2.Action = helpCommand1.Action
 }

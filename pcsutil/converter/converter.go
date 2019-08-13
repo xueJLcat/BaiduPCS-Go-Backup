@@ -3,8 +3,10 @@ package converter
 
 import (
 	"fmt"
+	"github.com/mattn/go-runewidth"
 	"reflect"
 	"strconv"
+	"strings"
 	"unicode"
 	"unsafe"
 )
@@ -22,6 +24,11 @@ const (
 	TB
 	// PB petabyte
 	PB
+)
+
+const (
+	// InvalidChars 文件名中的非法字符
+	InvalidChars = `\/:*?"<>|`
 )
 
 // ConvertFileSize 文件大小格式化输出
@@ -64,6 +71,11 @@ func ToBytes(str string) []byte {
 		Len:  strHeader.Len,
 		Cap:  strHeader.Len,
 	}))
+}
+
+// ToBytesUnsafe unsafe 转换, 请确保转换后的 []byte 不涉及 cap() 操作, 将 string 转换为 []byte
+func ToBytesUnsafe(str string) []byte {
+	return *(*[]byte)(unsafe.Pointer(&str))
 }
 
 // IntToBool int 类型转换为 bool
@@ -128,16 +140,36 @@ func MustInt64(s string) (i int64) {
 
 // ShortDisplay 缩略显示字符串s, 显示长度为num, 缩略的内容用"..."填充
 func ShortDisplay(s string, num int) string {
-	rs := []rune(s)
-	for k := 0; k < len(rs); k++ {
-		if unicode.Is(unicode.C, rs[k]) { // 去除无效字符
-			rs = append(rs[:k], rs[k+1:]...)
-			k--
+	var (
+		sb = strings.Builder{}
+		n  int
+	)
+	for _, v := range s {
+		if unicode.Is(unicode.C, v) { // 去除无效字符
 			continue
 		}
-		if k >= num {
-			return string(rs[:k]) + "..."
+		n += runewidth.RuneWidth(v)
+		if n > num {
+			sb.WriteString("...")
+			break
 		}
+		sb.WriteRune(v)
 	}
-	return string(rs)
+
+	return sb.String()
+}
+
+// TrimPathInvalidChars 清除文件名中的非法字符
+func TrimPathInvalidChars(fpath string) string {
+	buf := make([]byte, 0, len(fpath))
+
+	for _, c := range ToBytesUnsafe(fpath) {
+		if strings.ContainsRune(InvalidChars, rune(c)) {
+			continue
+		}
+
+		buf = append(buf, c)
+	}
+
+	return ToString(buf)
 }

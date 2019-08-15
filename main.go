@@ -1,19 +1,26 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
+	"github.com/iikira/BaiduPCS-Go/baidupcs"
 	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	_ "github.com/iikira/BaiduPCS-Go/internal/pcsinit"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsweb"
 	"github.com/iikira/BaiduPCS-Go/pcstable"
 	"github.com/iikira/BaiduPCS-Go/pcsutil"
+	"github.com/iikira/BaiduPCS-Go/pcsutil/checksum"
+	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
 	"github.com/iikira/BaiduPCS-Go/pcsverbose"
 	"github.com/iikira/BaiduPCS-Go/requester"
+	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"strconv"
 )
 
 const (
@@ -22,7 +29,7 @@ const (
 )
 
 var (
-	Version  = "3.6.7"
+	Version  = "3.6.8"
 	reloadFn = func(c *cli.Context) error {
 		err := pcsconfig.Config.Reload()
 		if err != nil {
@@ -37,6 +44,7 @@ var (
 		}
 		return nil
 	}
+	isCli bool
 )
 
 func init() {

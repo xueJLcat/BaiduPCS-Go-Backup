@@ -5,6 +5,7 @@ import (
 	"github.com/bitly/go-simplejson"
 	"github.com/iikira/Baidu-Login"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
+	"github.com/iikira/BaiduPCS-Go/internal/pcsfunctions/pcscaptcha"
 	"golang.org/x/net/websocket"
 )
 
@@ -30,6 +31,11 @@ func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 		vcodestr              string
 		BDUSS, PToken, SToken string
 	)
+	
+	defer func() {
+		pcscaptcha.RemoveCaptchaPath()
+		pcscaptcha.RemoveOldCaptchaPath()
+	}()
 
 	username, _ := rJson.Get("username").String()
 	password, _ := rJson.Get("password").String()
@@ -99,11 +105,11 @@ loginSuccess:
 	println("globalSessions", GlobalSessions)
 	GlobalSessions.WebSocketUnLock(conn.Request())
 
-	err = pcsconfig.Config.Save()
-	if err != nil {
+	if err = pcsconfig.Config.Save(); err != nil {
 		fmt.Printf("保存配置错误: %s\n", err)
+	} else {
+		fmt.Printf("保存配置成功\n")
 	}
-	fmt.Printf("保存配置成功\n")
 	return err
 }
 

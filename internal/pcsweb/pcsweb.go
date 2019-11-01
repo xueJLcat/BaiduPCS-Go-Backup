@@ -31,7 +31,7 @@ func StartServer(port uint, access bool) error {
 
 	http.HandleFunc("/api/v1/login", LoginHandle)
 	http.HandleFunc("/api/v1/logout", activeAuthMiddleware(LogoutHandle))
-	http.HandleFunc("/api/v1/password", activeAuthMiddleware(PasswordHandle))
+	//http.HandleFunc("/api/v1/password", activeAuthMiddleware(PasswordHandle))
 	http.HandleFunc("/api/v1/user", activeAuthMiddleware(UserHandle))
 	http.HandleFunc("/api/v1/quota", activeAuthMiddleware(QuotaHandle))
 	http.HandleFunc("/api/v1/share", activeAuthMiddleware(ShareHandle))

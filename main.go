@@ -76,6 +76,16 @@ func init() {
 	default:
 		fmt.Printf("WARNING: config init error: %s\n", err)
 	}
+
+	if pcsweb.GlobalSessions == nil {
+		pcsweb.GlobalSessions, err = pcsweb.NewSessionManager("memory", "goSessionid", 90 * 24 * 3600)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		pcsweb.GlobalSessions.Init()
+		go pcsweb.GlobalSessions.GC()
+	}
 }
 
 func main() {

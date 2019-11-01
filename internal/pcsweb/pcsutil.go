@@ -22,50 +22,50 @@ var (
 	Version           = "3.6.8"
 )
 
-func PasswordHandle(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	method := r.Form.Get("method")
-	switch method {
-	case "lock":
-		password := pcsconfig.Config.AccessPass()
-		if password != "" {
-			GlobalSessions.Lock(w, r)
-			sendHttpResponse(w, "success", "")
-			return
-		}
-		sendHttpErrorResponse(w, -6, "请先设置锁定密码")
-	case "exist":
-		password := pcsconfig.Config.AccessPass()
-		if password != "" {
-			sendHttpResponse(w, "", true)
-			return
-		}
-		sendHttpResponse(w, "", false)
-	case "verify":
-		password := pcsconfig.Config.AccessPass()
-		pass := r.Form.Get("password")
-		if pass == password {
-			sendHttpResponse(w, "", true)
-			return
-		}
-		sendHttpResponse(w, "", false)
-	case "set":
-		password := pcsconfig.Config.AccessPass()
-		oldpass := r.Form.Get("oldpass")
-		if password != "" && oldpass != password {
-			sendHttpErrorResponse(w, -3, "密码输入错误")
-			return
-		}
-
-		pass := r.Form.Get("password")
-		pcsconfig.Config.SetAccessPass(pass)
-		if err := pcsconfig.Config.Save(); err != nil {
-			sendHttpErrorResponse(w, -2, "保存配置错误: "+err.Error())
-			return
-		}
-		sendHttpResponse(w, "", "")
-	}
-}
+//func PasswordHandle(w http.ResponseWriter, r *http.Request) {
+//	r.ParseForm()
+//	method := r.Form.Get("method")
+//	switch method {
+//	case "lock":
+//		password := pcsconfig.Config.AccessPass()
+//		if password != "" {
+//			GlobalSessions.Lock(w, r)
+//			sendHttpResponse(w, "success", "")
+//			return
+//		}
+//		sendHttpErrorResponse(w, -6, "请先设置锁定密码")
+//	case "exist":
+//		password := pcsconfig.Config.AccessPass()
+//		if password != "" {
+//			sendHttpResponse(w, "", true)
+//			return
+//		}
+//		sendHttpResponse(w, "", false)
+//	case "verify":
+//		password := pcsconfig.Config.AccessPass()
+//		pass := r.Form.Get("password")
+//		if pass == password {
+//			sendHttpResponse(w, "", true)
+//			return
+//		}
+//		sendHttpResponse(w, "", false)
+//	case "set":
+//		password := pcsconfig.Config.AccessPass()
+//		oldpass := r.Form.Get("oldpass")
+//		if password != "" && oldpass != password {
+//			sendHttpErrorResponse(w, -3, "密码输入错误")
+//			return
+//		}
+//
+//		pass := r.Form.Get("password")
+//		pcsconfig.Config.SetAccessPass(pass)
+//		if err := pcsconfig.Config.Save(); err != nil {
+//			sendHttpErrorResponse(w, -2, "保存配置错误: "+err.Error())
+//			return
+//		}
+//		sendHttpResponse(w, "", "")
+//	}
+//}
 
 func LoginHandle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Access-Control-Allow-Headers", "Content-Type") //header的类型
@@ -106,7 +106,7 @@ func UserHandle(w http.ResponseWriter, r *http.Request) {
 	method := r.Form.Get("method")
 	switch method {
 	case "list":
-		sendHttpResponse(w, "", pcsconfig.Config.BaiduUserList())
+		sendHttpResponse(w, "", pcsconfig.Config.BaiduUserList)
 	case "get":
 		activeUser := pcsconfig.Config.ActiveUser()
 		sendHttpResponse(w, "", activeUser)
@@ -117,7 +117,7 @@ func UserHandle(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil {
 			var uid uint64
-			for _, user := range pcsconfig.Config.BaiduUserList() {
+			for _, user := range pcsconfig.Config.BaiduUserList {
 				if user.Name == name {
 					uid = user.UID
 				}
@@ -408,43 +408,43 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 		configJsons = append(configJsons, pcsConfigJSON{
 			Name:   "PCS应用ID",
 			EnName: "appid",
-			Value:  strconv.Itoa(config.AppID()),
+			Value:  strconv.Itoa(config.AppID),
 			Desc:   "",
 		})
 		configJsons = append(configJsons, pcsConfigJSON{
 			Name:   "启用 https",
 			EnName: "enable_https",
-			Value:  fmt.Sprint(config.EnableHTTPS()),
+			Value:  fmt.Sprint(config.EnableHTTPS),
 			Desc:   "",
 		})
 		configJsons = append(configJsons, pcsConfigJSON{
 			Name:   "浏览器标识",
 			EnName: "user_agent",
-			Value:  config.UserAgent(),
+			Value:  config.UserAgent,
 			Desc:   "",
 		})
 		configJsons = append(configJsons, pcsConfigJSON{
 			Name:   "下载缓存",
 			EnName: "cache_size",
-			Value:  strconv.Itoa(config.CacheSize()),
+			Value:  strconv.Itoa(config.CacheSize),
 			Desc:   "建议1024 ~ 262144, 如果硬盘占用高或下载速度慢, 请尝试调大此值",
 		})
 		configJsons = append(configJsons, pcsConfigJSON{
 			Name:   "下载最大并发量",
 			EnName: "max_parallel",
-			Value:  strconv.Itoa(config.MaxParallel()),
+			Value:  strconv.Itoa(config.MaxParallel),
 			Desc:   "建议50 ~ 500. 单任务下载最大线程数量",
 		})
 		configJsons = append(configJsons, pcsConfigJSON{
 			Name:   "同时下载数量",
 			EnName: "max_download_load",
-			Value:  strconv.Itoa(config.MaxDownloadLoad()),
+			Value:  strconv.Itoa(config.MaxDownloadLoad),
 			Desc:   "建议 1 ~ 5, 同时进行下载文件的最大数量",
 		})
 		configJsons = append(configJsons, pcsConfigJSON{
 			Name:   "下载目录",
 			EnName: "savedir",
-			Value:  config.SaveDir(),
+			Value:  config.SaveDir,
 			Desc:   "下载文件的储存目录",
 		})
 		configJsons = append(configJsons, pcsConfigJSON{
@@ -470,37 +470,37 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 
 		appid := r.Form.Get("appid")
 		int_value, _ := strconv.Atoi(appid)
-		if int_value != config.AppID() {
+		if int_value != config.AppID {
 			config.SetAppID(int_value)
 		}
 
 		enable_https := r.Form.Get("enable_https")
 		bool_value, _ := strconv.ParseBool(enable_https)
-		if bool_value != config.EnableHTTPS() {
+		if bool_value != config.EnableHTTPS {
 			config.SetEnableHTTPS(bool_value)
 		}
 
 		user_agent := r.Form.Get("user_agent")
-		if user_agent != config.UserAgent() {
+		if user_agent != config.UserAgent {
 			config.SetUserAgent(user_agent)
 		}
 
 		cache_size := r.Form.Get("cache_size")
 		int_value, _ = strconv.Atoi(cache_size)
-		if int_value != config.CacheSize() {
-			config.SetCacheSize(int_value)
+		if int_value != config.CacheSize {
+			config.CacheSize = int_value
 		}
 
 		max_parallel := r.Form.Get("max_parallel")
 		int_value, _ = strconv.Atoi(max_parallel)
-		if int_value != config.MaxParallel() {
-			config.SetMaxParallel(int_value)
+		if int_value != config.MaxParallel {
+			config.MaxParallel = int_value
 		}
 
 		max_download_load := r.Form.Get("max_download_load")
 		int_value, _ = strconv.Atoi(max_download_load)
-		if int_value != config.MaxDownloadLoad() {
-			config.SetMaxDownloadLoad(int_value)
+		if int_value != config.MaxDownloadLoad {
+			config.MaxDownloadLoad = int_value
 		}
 
 		savedir := r.Form.Get("savedir")
@@ -510,7 +510,7 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 			config.Save()
 			return
 		}
-		config.SetSaveDir(savedir)
+		config.SaveDir = savedir
 
 		workdir := r.Form.Get("workdir")
 		err = pcscommand.RunChangeDirectory(workdir, false)

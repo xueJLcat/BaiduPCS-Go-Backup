@@ -10,21 +10,24 @@ import (
 // DoDownload 执行下载
 func DoDownload(durl string, savePath string, cfg *Config) {
 	var (
-		file io.WriterAt
-		err  error
+		file      *os.File
+		writer    io.WriterAt
+		warn, err error
 	)
 
 	if savePath != "" {
-		file, err = os.Create(savePath)
+		writer, file, warn, err = NewDownloaderWriterByFilename(savePath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0666)
+		if warn != nil {
+			fmt.Printf("warn: %s\n", warn)
+		}
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-	} else {
-		file = nil
+		defer file.Close()
 	}
 
-	download := NewDownloader(durl, file, cfg)
+	download := NewDownloader(durl, writer, cfg)
 
 	exitDownloadFunc := make(chan struct{})
 

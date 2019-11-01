@@ -3,6 +3,7 @@ package baidupcs
 import (
 	"errors"
 	"github.com/iikira/BaiduPCS-Go/baidupcs/pcserror"
+	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
 	"net/http"
 	"net/url"
 )
@@ -10,6 +11,8 @@ import (
 var (
 	// ErrLocateDownloadURLNotFound 未找到下载链接
 	ErrLocateDownloadURLNotFound = errors.New("locatedownload url not found")
+	// MaxDownloadRangeSize 文件片段最大值
+	MaxDownloadRangeSize = 55*converter.MB - 1
 )
 
 type (
@@ -113,9 +116,9 @@ func (pcs *BaiduPCS) DownloadStreamFile(path string, downloadFunc DownloadFunc) 
 	return downloadFunc(pcsURL.String(), pcs.client.Jar)
 }
 
-// LocateDownloadWithUserAgent 获取下载链接, 可指定User-Agent
-func (pcs *BaiduPCS) LocateDownloadWithUserAgent(pcspath, ua string) (info *URLInfo, pcsError pcserror.Error) {
-	dataReadCloser, pcsError := pcs.prepareLocateDownload(pcspath, ua)
+// LocateDownloadWithUserAgent 获取下载链接
+func (pcs *BaiduPCS) LocateDownload(pcspath string) (info *URLInfo, pcsError pcserror.Error) {
+	dataReadCloser, pcsError := pcs.PrepareLocateDownload(pcspath)
 	if dataReadCloser != nil {
 		defer dataReadCloser.Close()
 	}
@@ -134,11 +137,6 @@ func (pcs *BaiduPCS) LocateDownloadWithUserAgent(pcspath, ua string) (info *URLI
 	}
 
 	return &jsonData.URLInfo, nil
-}
-
-// LocateDownload 获取下载链接
-func (pcs *BaiduPCS) LocateDownload(pcspath string) (info *URLInfo, pcsError pcserror.Error) {
-	return pcs.LocateDownloadWithUserAgent(pcspath, "")
 }
 
 // LocatePanAPIDownload 从百度网盘首页获取下载链接

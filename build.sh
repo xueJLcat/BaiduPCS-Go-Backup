@@ -21,7 +21,8 @@ Build() {
     echo "Building $1..."
     export GOOS=$2 GOARCH=$3 GO386=sse2 CGO_ENABLED=0 GOARM=$4
     if [ $2 = "windows" ];then
-        ./goversioninfo -icon=assets/$name.ico -manifest="$name".exe.manifest -product-name="$name" -file-version="$version" -product-version="$version" -company=liuzhuoling -copyright="©2018 liuzhuoling" -o=resource_windows.syso
+        goversioninfo -o=resource_windows_386.syso
+        goversioninfo -64 -o=resource_windows_amd64.syso
         $go build -ldflags "-X main.Version=$version -s -w" -o "$output/$1/$name.exe"
         RicePack $1 $name.exe
     else
@@ -40,6 +41,23 @@ ArmBuild() {
     else
         CC=$ANDROID_NDK_ROOT/bin/x86_64-linux-android/bin/x86_64-linux-android-gcc $go build -ldflags "-X main.Version=$version -s -w  -linkmode=external -extldflags=-pie" -o "$output/$1/$name"
     fi
+    RicePack $1 $name
+    Pack $1
+}
+
+IOSBuild() {
+    echo "Building $1..."
+    mkdir -p "$output/$1"
+    cd "$output/$1"
+    export CC=/usr/local/go/misc/ios/clangwrap.sh GOOS=darwin GOARCH=arm GOARM=7 CGO_ENABLED=1
+    $go build -ldflags "-X main.Version=$version -s -w" -o "armv7" github.com/iikira/BaiduPCS-Go
+    jtool --sign --inplace --ent ../../entitlements.xml "armv7"
+    export GOARCH=arm64
+    $go build -ldflags "-X main.Version=$version -s -w" -o "arm64" github.com/iikira/BaiduPCS-Go
+    jtool --sign --inplace --ent ../../entitlements.xml "arm64"
+    lipo -create "armv7" "arm64" -output $name # merge
+    rm "armv7" "arm64"
+    cd ../..
     RicePack $1 $name
     Pack $1
 }

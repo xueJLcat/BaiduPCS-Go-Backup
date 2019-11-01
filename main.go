@@ -3,6 +3,12 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strconv"
+
 	"github.com/iikira/BaiduPCS-Go/baidupcs"
 	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
@@ -13,24 +19,35 @@ import (
 	"github.com/iikira/BaiduPCS-Go/pcsutil/checksum"
 	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
 	"github.com/iikira/BaiduPCS-Go/pcsverbose"
-	"github.com/iikira/BaiduPCS-Go/requester"
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"strconv"
 )
 
 const (
 	// NameShortDisplayNum 文件名缩略显示长度
 	NameShortDisplayNum = 16
+
+	cryptoDescription = `
+	可用的方法 <method>:
+		aes-128-ctr, aes-192-ctr, aes-256-ctr,
+		aes-128-cfb, aes-192-cfb, aes-256-cfb,
+		aes-128-ofb, aes-192-ofb, aes-256-ofb.
+
+	密钥 <key>:
+		aes-128 对应key长度为16, aes-192 对应key长度为24, aes-256 对应key长度为32,
+		如果key长度不符合, 则自动修剪key, 舍弃超出长度的部分, 长度不足的部分用'\0'填充.
+
+	GZIP <disable-gzip>:
+		在文件加密之前, 启用GZIP压缩文件; 文件解密之后启用GZIP解压缩文件, 默认启用,
+		如果不启用, 则无法检测文件是否解密成功, 解密文件时会保留源文件, 避免解密失败造成文件数据丢失.`
 )
 
 var (
-	Version  = "3.6.8"
-	reloadFn = func(c *cli.Context) error {
+	// Version 版本号
+	Version = "v3.6.9"
+
+	historyFilePath = filepath.Join(pcsconfig.GetConfigDir(), "pcs_command_history.txt")
+	reloadFn        = func(c *cli.Context) error {
 		err := pcsconfig.Config.Reload()
 		if err != nil {
 			fmt.Printf("重载配置错误: %s\n", err)
@@ -59,19 +76,6 @@ func init() {
 	default:
 		fmt.Printf("WARNING: config init error: %s\n", err)
 	}
-
-	// 启动缓存回收
-	requester.TCPAddrCache.GC()
-
-	if pcsweb.GlobalSessions == nil {
-		pcsweb.GlobalSessions, err = pcsweb.NewSessionManager("memory", "goSessionid", 90 * 24 * 3600)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		pcsweb.GlobalSessions.Init()
-		go pcsweb.GlobalSessions.GC()
-	}
 }
 
 func main() {
@@ -89,7 +93,7 @@ func main() {
 		Email: "i@mail.iikira.com",
 	}
 	app.Authors = []cli.Author{liuzhuoling, iikira}
-	app.Description = "这个软件可以让你高效的使用百度云"
+	app.Description = "BaiduPCS-Go 使用Go语言编写的百度网盘命令行客户端, 可以让你高效的使用百度云"
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:        "verbose",
@@ -136,8 +140,8 @@ func main() {
 					Value: 5299,
 				},
 				cli.BoolFlag{
-					Name:  "access",
-					Usage: "是否允许外网访问",
+					Name:   "access",
+					Usage:  "是否允许外网访问",
 					Hidden: false,
 				},
 			},
@@ -283,7 +287,7 @@ func main() {
 					}
 
 					if n, err := strconv.Atoi(index); err == nil && n >= 0 && n < numLogins {
-						uid = pcsconfig.Config.BaiduUserList()[n].UID
+						uid = pcsconfig.Config.BaiduUserList[n].UID
 					} else {
 						fmt.Printf("切换用户失败, 请检查 # 值是否正确\n")
 						return nil
@@ -305,12 +309,7 @@ func main() {
 					}
 				}
 
-				if err = pcsconfig.Config.Save(); err != nil {
-					fmt.Printf("保存配置错误: %s\n", err)
-					return nil
-				}
-
-				fmt.Printf("切换用户成功, %s\n", switchedUser.Name)
+				fmt.Printf("切换用户: %s\n", switchedUser.Name)
 				return nil
 			},
 		},
@@ -365,8 +364,7 @@ func main() {
 			Category:    "百度帐号",
 			Before:      reloadFn,
 			Action: func(c *cli.Context) error {
-				list := pcsconfig.Config.BaiduUserList()
-				fmt.Println(list.String())
+				fmt.Println(pcsconfig.Config.BaiduUserList.String())
 				return nil
 			},
 		},
@@ -675,7 +673,7 @@ func main() {
 				BaiduPCS-Go mv <文件/目录1> <文件/目录2> <文件/目录3> ... <目标目录>
 				重命名:
 				BaiduPCS-Go mv <文件/目录> <重命名的文件/目录>`,
-						Description: `
+			Description: `
 				注意: 移动多个文件和目录时, 请确保每一个文件和目录都存在, 否则移动操作会失败.
 				示例:
 				将 /我的资源/1.mp4 移动到 根目录 /
@@ -921,12 +919,13 @@ func main() {
 			Name:      "locate",
 			Aliases:   []string{"lt"},
 			Usage:     "获取下载直链",
-			UsageText: fmt.Sprintf("%s locate <文件1> <文件2> ...", app.Name),
-			Description: `
-				获取下载直链
-				若该功能无法正常使用, 提示"user is not authorized, hitcode:101", 尝试更换 User-Agent 为 netdisk;8.3.1;andorid-android:
-				BaiduPCS-Go config set -user_agent "netdisk;8.3.1;andorid-android"
-			`,
+			UsageText: app.Name + " locate <文件1> <文件2> ...",
+			Description: fmt.Sprintf(`
+	获取下载直链
+
+	若该功能无法正常使用, 提示"user is not authorized, hitcode:xxx", 尝试更换 User-Agent 为 %s:
+	BaiduPCS-Go config set -user_agent "%s"
+`, baidupcs.NetdiskUA, baidupcs.NetdiskUA),
 			Category: "百度网盘",
 			Before:   reloadFn,
 			Action: func(c *cli.Context) error {
@@ -953,7 +952,7 @@ func main() {
 			Name:      "rapidupload",
 			Aliases:   []string{"ru"},
 			Usage:     "手动秒传文件",
-			UsageText: fmt.Sprintf("%s rapidupload -length=<文件的大小> -md5=<文件的md5值> -slicemd5=<文件前256KB切片的md5值(可选)> -crc32=<文件的crc32值(可选)> <保存的网盘路径, 需包含文件名>", app.Name),
+			UsageText: app.Name + " rapidupload -length=<文件的大小> -md5=<文件的md5值> -slicemd5=<文件前256KB切片的md5值(可选)> -crc32=<文件的crc32值(可选)> <保存的网盘路径, 需包含文件名>",
 			Description: `
 				使用此功能秒传文件, 前提是知道文件的大小, md5, 前256KB切片的 md5 (可选), crc32 (可选), 且百度网盘中存在一模一样的文件.
 				上传的文件将会保存到网盘的目标目录.
@@ -997,7 +996,7 @@ func main() {
 			Name:      "createsuperfile",
 			Aliases:   []string{"csf"},
 			Usage:     "手动分片上传—合并分片文件",
-			UsageText: fmt.Sprintf("%s createsuperfile -path=<保存的网盘路径, 需包含文件名> block1 block2 ... ", app.Name),
+			UsageText: app.Name + " createsuperfile -path=<保存的网盘路径, 需包含文件名> block1 block2 ... ",
 			Description: `
 				block1, block2 ... 为文件分片的md5值
 				上传的文件将会保存到网盘的目标目录.
@@ -1072,11 +1071,7 @@ func main() {
 				}
 
 				for k, filePath := range c.Args() {
-					lp, err := checksum.GetFileSum(filePath, &checksum.SumConfig{
-						IsMD5Sum:      true,
-						IsCRC32Sum:    true,
-						IsSliceMD5Sum: true,
-					})
+					lp, err := checksum.GetFileSum(filePath, checksum.CHECKSUM_MD5|checksum.CHECKSUM_SLICE_MD5|checksum.CHECKSUM_CRC32)
 					if err != nil {
 						fmt.Printf("[%d] %s\n", k+1, err)
 						continue
@@ -1201,20 +1196,26 @@ func main() {
 						if c.IsSet("user_agent") {
 							pcsconfig.Config.SetUserAgent(c.String("user_agent"))
 						}
+						if c.IsSet("pcs_ua") {
+							pcsconfig.Config.SetUserAgent(c.String("pcs_ua"))
+						}
+						if c.IsSet("pan_ua") {
+							pcsconfig.Config.SetUserAgent(c.String("pan_ua"))
+						}
 						if c.IsSet("cache_size") {
-							pcsconfig.Config.SetCacheSize(c.Int("cache_size"))
+							pcsconfig.Config.CacheSize = c.Int("cache_size")
 						}
 						if c.IsSet("max_parallel") {
-							pcsconfig.Config.SetMaxParallel(c.Int("max_parallel"))
+							pcsconfig.Config.MaxParallel = c.Int("max_parallel")
 						}
 						if c.IsSet("max_upload_parallel") {
-							pcsconfig.Config.SetMaxUploadParallel(c.Int("max_upload_parallel"))
+							pcsconfig.Config.MaxUploadParallel = c.Int("max_upload_parallel")
 						}
 						if c.IsSet("max_download_load") {
-							pcsconfig.Config.SetMaxDownloadLoad(c.Int("max_download_load"))
+							pcsconfig.Config.MaxDownloadLoad = c.Int("max_download_load")
 						}
 						if c.IsSet("savedir") {
-							pcsconfig.Config.SetSaveDir(c.String("savedir"))
+							pcsconfig.Config.SaveDir = c.String("savedir")
 						}
 						if c.IsSet("proxy") {
 							pcsconfig.Config.SetProxy(c.String("proxy"))
@@ -1266,6 +1267,14 @@ func main() {
 						cli.StringFlag{
 							Name:  "user_agent",
 							Usage: "浏览器标识",
+						},
+						cli.StringFlag{
+							Name:  "pcs_ua",
+							Usage: "PCS 浏览器标识",
+						},
+						cli.StringFlag{
+							Name:  "pan_ua",
+							Usage: "Pan 浏览器标识",
 						},
 						cli.StringFlag{
 							Name:  "proxy",

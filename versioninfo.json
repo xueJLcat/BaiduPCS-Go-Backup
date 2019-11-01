@@ -3,13 +3,13 @@
         "FileVersion": {
             "Major": 3,
             "Minor": 6,
-            "Patch": 1,
+            "Patch": 9,
             "Build": 0
         },
         "ProductVersion": {
             "Major": 3,
             "Minor": 6,
-            "Patch": 1,
+            "Patch": 9,
             "Build": 0
         },
         "FileFlagsMask": "3f",
@@ -20,16 +20,16 @@
     },
     "StringFileInfo": {
         "Comments": "",
-        "CompanyName": "liuzhuoling",
+        "CompanyName": "ZoranJojo",
         "FileDescription": "百度网盘客户端",
-        "FileVersion": "v3.6.1",
+        "FileVersion": "v3.6.9",
         "InternalName": "",
-        "LegalCopyright": "© 2016-2018 liuzhuoling.",
+        "LegalCopyright": "© 2018-2020 ZoranJojo.",
         "LegalTrademarks": "",
         "OriginalFilename": "",
         "PrivateBuild": "",
         "ProductName": "BaiduPCS-Go-Web",
-        "ProductVersion": "v3.6.2",
+        "ProductVersion": "v3.6.9",
         "SpecialBuild": ""
     },
     "VarFileInfo": {

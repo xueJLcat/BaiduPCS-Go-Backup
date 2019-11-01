@@ -1,14 +1,15 @@
 # 更新日志: 
 
-1. 修复登录成功后, 无法正常使用的问题 ([#399](https://github.com/iikira/BaiduPCS-Go/issues/399));
-2. 修复文件夹下载无法调整重试次数;
-3. 使用 export 导出, 会输出导出错误的文件或目录了;
-4. 更换失效的默认app_id, 对于不是全新安装此程序的用户, 仍然需要手动更改默认的app_id, ([#387](https://github.com/iikira/BaiduPCS-Go/issues/387))
-
-```
-BaiduPCS-Go config set -appid 266719
-```
-
+1. 更换软件更新源为github release, 原来的软件更新功能已无法使用, 请手动更新
+2. 新增修复文件md5功能 (fixmd5), 并取消上传完成后修复md5的功能
+3. 新增测试通配符功能 (match)
+4. 新增设置上传最大并发量
+5. 新增设置多个网卡, 以提高网路传输性能
+6. 新增设置代理
+7. meta 命令可以获取多个文件/目录的元信息了
+8. 下载功能调整
+9. 取消web端
+10. 多处bug修复
 
 个人项目bug在所难免! 欢迎提 issue 和 pull request!!.
 
@@ -28,8 +29,11 @@ BaiduPCS-Go config set -appid 266719
 * PC/电脑: 
     请选择对应的系统 (windows, linux, darwin(苹果系统), freebsd), 对应的CPU架构 (一般情况下是 amd), 对应的CPU或操作系统位数 (详见上表), 下载.
 
-* 移动设备: 
-    请选择对应的系统(android, darwin(ios系统)), 对应的CPU架构 (一般情况下是 arm, 除了少数手机的CPU架构要选 amd, 例如联想K800, 联想K900等), 对应的CPU或操作系统位数  (详见上表), 下载.
+* Android: 
+    选择对应的CPU架构 (一般情况下是 arm, 除了少数手机的CPU架构要选 amd, 例如联想K800, 联想K900等), 对应的CPU或操作系统位数  (详见上表), 下载.
+
+* iOS:
+    无需选择CPU架构，选择 darwin-ios 下载解压后即可使用. 注意: armv7s架构的设备 (iPhone 5, iPhone 5c, iPad 4) 或 iOS 系统版本低于5.0, 可能无法正常运行.
 
 ## 注意
 

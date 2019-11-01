@@ -19,8 +19,8 @@ type (
 	//Worker 工作单元
 	Worker struct {
 		speedsPerSecond int64 //速度
-		wrange          Range
-		speedsStat      speeds.Speeds
+		wrange          *Range
+		speedsStat      *speeds.Speeds
 		id              int    //id
 		cacheSize       int    //下载缓存
 		url             string //下载地址
@@ -71,16 +71,19 @@ func (wer *Worker) lazyInit() {
 	if wer.client == nil {
 		wer.client = requester.NewHTTPClient()
 	}
-	if wer.writeMu == nil {
-		wer.writeMu = &sync.Mutex{}
-	}
 	if wer.pauseChan == nil {
 		wer.pauseChan = make(chan struct{})
+	}
+	if wer.wrange == nil {
+		wer.wrange = &Range{}
 	}
 	if wer.wrange.LoadBegin() == 0 && wer.wrange.LoadEnd() == 0 {
 		// 取消多线程下载
 		wer.acceptRanges = ""
 		wer.wrange.StoreEnd(-2)
+	}
+	if wer.speedsStat == nil {
+		wer.speedsStat = &speeds.Speeds{}
 	}
 }
 
@@ -95,10 +98,19 @@ func (wer *Worker) SetCacheSize(size int) {
 	fixCacheSize(&wer.cacheSize)
 }
 
-//SetRange 设置请求范围
-func (wer *Worker) SetRange(acceptRanges string, r Range) {
+//SetAcceptRange 设置AcceptRange
+func (wer *Worker) SetAcceptRange(acceptRanges string) {
 	wer.acceptRanges = acceptRanges
-	wer.wrange = r
+}
+
+//SetRange 设置请求范围
+func (wer *Worker) SetRange(r *Range) {
+	if wer.wrange == nil {
+		wer.wrange = r
+		return
+	}
+	wer.wrange.StoreBegin(r.LoadBegin())
+	wer.wrange.StoreEnd(r.LoadEnd())
 }
 
 //SetReferer 设置来源
@@ -124,7 +136,7 @@ func (wer *Worker) GetStatus() Status {
 
 //GetRange 返回worker范围
 func (wer *Worker) GetRange() *Range {
-	return &wer.wrange
+	return wer.wrange
 }
 
 //GetSpeedsPerSecond 获取每秒的速度
@@ -329,8 +341,7 @@ func (wer *Worker) Execute() {
 	fixCacheSize(&wer.cacheSize)
 	var (
 		speedsCtx, speedsCancelFunc = context.WithCancel(context.Background())
-		cache                       = cachepool.Require(wer.cacheSize)
-		buf                         = cache.Bytes()
+		buf                         = cachepool.SyncPool.Get().([]byte)
 		n, nn                       int
 		n64, nn64                   int64
 	)
@@ -338,7 +349,7 @@ func (wer *Worker) Execute() {
 	wer.updateSpeeds(speedsCtx)
 	defer func() {
 		speedsCancelFunc() // 结束速度统计
-		cache.Free()
+		cachepool.SyncPool.Put(buf)
 	}()
 
 	for {
@@ -400,15 +411,21 @@ func (wer *Worker) Execute() {
 			// 写入数据
 			if wer.writerAt != nil {
 				wer.status.statusCode = StatusCodeWaitToWrite
-				wer.writeMu.Lock()                                           // 加锁, 减轻硬盘的压力
+				if wer.writeMu != nil {
+					wer.writeMu.Lock() // 加锁, 减轻硬盘的压力
+				}
 				_, wer.err = wer.writerAt.WriteAt(buf[:n], wer.wrange.Begin) // 写入数据
 				if wer.err != nil {
-					wer.writeMu.Unlock()
+					if wer.writeMu != nil {
+						wer.writeMu.Unlock() //解锁
+					}
 					wer.status.statusCode = StatusCodeInternalError
 					return
 				}
 
-				wer.writeMu.Unlock() //解锁
+				if wer.writeMu != nil {
+					wer.writeMu.Unlock() //解锁
+				}
 				wer.status.statusCode = StatusCodeDownloading
 			}
 

@@ -44,7 +44,7 @@ var (
 )
 
 func (pcs *BaiduPCS) getLocateDownloadLink(pcspath string) (link string, pcsError pcserror.Error) {
-	info, pcsError := pcs.LocateDownloadWithUserAgent(pcspath, NetdiskUA)
+	info, pcsError := pcs.LocateDownload(pcspath)
 	if pcsError != nil {
 		return
 	}
@@ -69,7 +69,15 @@ func (pcs *BaiduPCS) ExportByFileInfo(finfo *FileDirectory) (rinfo *RapidUploadI
 		return nil, errInfo
 	}
 
-	return pcs.GetRapidUploadInfoByFileInfo(finfo)
+	rinfo, pcsError = pcs.GetRapidUploadInfoByFileInfo(finfo)
+	if pcsError != nil {
+		return nil, pcsError
+	}
+	if rinfo.Filename != finfo.Filename {
+		baiduPCSVerbose.Infof("%s filename not equal, local: %s, remote link: %s\n", OperationExportFileInfo, finfo.Filename, rinfo.Filename)
+		rinfo.Filename = finfo.Filename
+	}
+	return rinfo, nil
 }
 
 // GetRapidUploadInfoByFileInfo 通过文件信息对象, 获取秒传信息
@@ -90,8 +98,10 @@ func (pcs *BaiduPCS) GetRapidUploadInfoByFileInfo(finfo *FileDirectory) (rinfo *
 		return nil, pcsError
 	}
 
+	// 只有ContentLength可以比较
+	// finfo记录的ContentMD5不一定是正确的
+	// finfo记录的Filename不一定与获取到的一致
 	return pcs.GetRapidUploadInfoByLink(link, &RapidUploadInfo{
-		Filename:      finfo.Filename,
 		ContentLength: finfo.Size,
 	})
 }
@@ -102,9 +112,7 @@ func (pcs *BaiduPCS) GetRapidUploadInfoByLink(link string, compareRInfo *RapidUp
 	errInfo.ErrType = pcserror.ErrTypeOthers
 
 	var (
-		header = map[string]string{
-			"User-Agent": NetdiskUA,
-		}
+		header     = pcs.getPanUAHeader()
 		isSetRange = compareRInfo != nil && compareRInfo.ContentLength > SliceMD5Size // 是否设置Range
 	)
 	if isSetRange {

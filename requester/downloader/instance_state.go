@@ -2,86 +2,100 @@ package downloader
 
 import (
 	"errors"
+	"github.com/golang/protobuf/proto"
 	"github.com/iikira/BaiduPCS-Go/pcsverbose"
 	"github.com/json-iterator/go"
 	"os"
 	"sync"
+	"time"
 )
 
-//InstanceState 状态, 断点续传信息
-type InstanceState struct {
-	saveFile *os.File
-	ii       *instanceInfo
-	mu       sync.Mutex
-}
-
-type rangeInfo struct {
-	Begin int64 `json:"begin"`
-	End   int64 `json:"end"`
-}
-
-//InstanceInfo 状态详细信息, 用于导出状态文件
-type InstanceInfo struct {
-	DlStatus *DownloadStatus
-	Ranges   RangeList
-}
-
-type instanceInfo struct {
-	TotalSize int64        `json:"total_size"` // 总大小
-	Ranges    []*rangeInfo `json:"ranges"`
-}
-
-func (ii *instanceInfo) Convert() (eii *InstanceInfo) {
-	eii = &InstanceInfo{}
-	eii.Ranges = make([]*Range, 0, len(ii.Ranges))
-	for k := range ii.Ranges {
-		if ii.Ranges[k] == nil {
-			continue
-		}
-
-		eii.Ranges = append(eii.Ranges, &Range{
-			Begin: ii.Ranges[k].Begin,
-			End:   ii.Ranges[k].End,
-		})
+type (
+	//InstanceState 状态, 断点续传信息
+	InstanceState struct {
+		saveFile *os.File
+		format   InstanceStateStorageFormat
+		ii       InstanceInfoExporter
+		mu       sync.Mutex
 	}
 
-	downloaded := ii.TotalSize - eii.Ranges.Len()
+	//InstanceInfo 状态详细信息, 用于导出状态文件
+	InstanceInfo struct {
+		DlStatus *DownloadStatus
+		Ranges   RangeList
+	}
+
+	// InstanceInfoExporter 断点续传类型接口
+	InstanceInfoExporter interface {
+		GetInstanceInfo() *InstanceInfo
+		SetInstanceInfo(*InstanceInfo)
+	}
+
+	// InstanceStateStorageFormat 断点续传储存类型
+	InstanceStateStorageFormat int
+)
+
+const (
+	// InstanceStateStorageFormatJSON json 格式
+	InstanceStateStorageFormatJSON = iota
+	// InstanceStateStorageFormatProto3 protobuf 格式
+	InstanceStateStorageFormatProto3
+)
+
+// GetInstanceInfo 从断点信息获取下载状态
+func (m *InstanceInfoExport) GetInstanceInfo() (eii *InstanceInfo) {
+	eii = &InstanceInfo{
+		Ranges: m.Ranges,
+	}
+
+	var downloaded int64
+	switch m.RangeGenMode {
+	case RangeGenMode_BlockSize:
+		downloaded = m.GenBegin - eii.Ranges.Len()
+	default:
+		downloaded = m.TotalSize - eii.Ranges.Len()
+	}
 	eii.DlStatus = &DownloadStatus{
-		totalSize:        ii.TotalSize,
+		nowTime:          time.Now(),
+		totalSize:        m.TotalSize,
 		downloaded:       downloaded,
 		speedsDownloaded: downloaded,
 		oldDownloaded:    downloaded,
+		gen:              NewRangeListGenBlockSize(m.TotalSize, m.GenBegin, m.BlockSize),
+	}
+	switch m.RangeGenMode {
+	case RangeGenMode_BlockSize:
+		eii.DlStatus.gen = NewRangeListGenBlockSize(m.TotalSize, m.GenBegin, m.BlockSize)
+	default:
+		eii.DlStatus.gen = NewRangeListGenDefault(m.TotalSize, m.TotalSize, len(m.Ranges), len(m.Ranges))
 	}
 	return eii
 }
 
-func (ii *instanceInfo) Render(eii *InstanceInfo) {
+// SetInstanceInfo 从下载状态导出断点信息
+func (m *InstanceInfoExport) SetInstanceInfo(eii *InstanceInfo) {
 	if eii == nil {
 		return
 	}
-	if eii.DlStatus != nil {
-		ii.TotalSize = eii.DlStatus.TotalSize()
-	}
-	if eii.Ranges != nil {
-		ii.Ranges = make([]*rangeInfo, 0, len(eii.Ranges))
-		for k := range eii.Ranges {
-			if eii.Ranges[k] == nil {
-				continue
-			}
 
-			ii.Ranges = append(ii.Ranges, &rangeInfo{
-				Begin: eii.Ranges[k].LoadBegin(),
-				End:   eii.Ranges[k].LoadEnd(),
-			})
+	if eii.DlStatus != nil {
+		m.TotalSize = eii.DlStatus.TotalSize()
+		if eii.DlStatus.gen != nil {
+			m.GenBegin = eii.DlStatus.gen.LoadBegin()
+			m.BlockSize = eii.DlStatus.gen.LoadBlockSize()
+			m.RangeGenMode = eii.DlStatus.gen.RangeGenMode()
+		} else {
+			m.RangeGenMode = RangeGenMode_Default
 		}
 	}
+	m.Ranges = eii.Ranges
 }
 
 //NewInstanceState 初始化InstanceState
-func NewInstanceState(saveFile *os.File) *InstanceState {
+func NewInstanceState(saveFile *os.File, format InstanceStateStorageFormat) *InstanceState {
 	return &InstanceState{
 		saveFile: saveFile,
-		ii:       &instanceInfo{},
+		format:   format,
 	}
 }
 
@@ -120,22 +134,26 @@ func (is *InstanceState) Get() (eii *InstanceInfo) {
 	is.mu.Lock()
 	defer is.mu.Unlock()
 
-	if is.ii == nil {
-		is.ii = &instanceInfo{}
-	}
-
 	contents := is.getSaveFileContents()
 	if len(contents) <= 0 {
 		return
 	}
 
-	err := jsoniter.Unmarshal(contents, is.ii)
+	is.ii = &InstanceInfoExport{}
+	var err error
+	switch is.format {
+	case InstanceStateStorageFormatProto3:
+		err = proto.Unmarshal(contents, is.ii.(*InstanceInfoExport))
+	default:
+		err = jsoniter.Unmarshal(contents, is.ii)
+	}
+
 	if err != nil {
-		pcsverbose.Verbosef("DEBUG: unmarshal json error: %s\n", err)
+		pcsverbose.Verbosef("DEBUG: InstanceInfo unmarshal error: %s\n", err)
 		return
 	}
 
-	eii = is.ii.Convert()
+	eii = is.ii.GetInstanceInfo()
 	return
 }
 
@@ -145,17 +163,23 @@ func (is *InstanceState) Put(eii *InstanceInfo) {
 		return
 	}
 
-	if is.ii == nil { // 忽略
-		return
-	}
-
 	is.mu.Lock()
 	defer is.mu.Unlock()
 
-	var err error
-
-	is.ii.Render(eii)
-	data, err := jsoniter.Marshal(is.ii)
+	if is.ii == nil {
+		is.ii = &InstanceInfoExport{}
+	}
+	is.ii.SetInstanceInfo(eii)
+	var (
+		data []byte
+		err  error
+	)
+	switch is.format {
+	case InstanceStateStorageFormatProto3:
+		data, err = proto.Marshal(is.ii.(*InstanceInfoExport))
+	default:
+		data, err = jsoniter.Marshal(is.ii)
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -167,7 +191,7 @@ func (is *InstanceState) Put(eii *InstanceInfo) {
 
 	_, err = is.saveFile.WriteAt(data, 0)
 	if err != nil {
-		pcsverbose.Verbosef("DEBUG: write json error: %s\n", err)
+		pcsverbose.Verbosef("DEBUG: write instance state error: %s\n", err)
 	}
 }
 
@@ -180,7 +204,7 @@ func (is *InstanceState) Close() error {
 	return is.saveFile.Close()
 }
 
-func (der *Downloader) initInstanceState() (err error) {
+func (der *Downloader) initInstanceState(format InstanceStateStorageFormat) (err error) {
 	if der.instanceState != nil {
 		return errors.New("already initInstanceState")
 	}
@@ -193,7 +217,7 @@ func (der *Downloader) initInstanceState() (err error) {
 		}
 	}
 
-	der.instanceState = NewInstanceState(saveFile)
+	der.instanceState = NewInstanceState(saveFile, format)
 	return nil
 }
 

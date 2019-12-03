@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/iikira/BaiduPCS-Go/pcstable"
 	"github.com/iikira/BaiduPCS-Go/pcsverbose"
+	"github.com/iikira/BaiduPCS-Go/requester/transfer"
 	"sort"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -18,21 +16,26 @@ var (
 	ErrNoWokers = errors.New("no workers")
 )
 
-//Monitor 线程监控器
-type Monitor struct {
-	workers         WorkerList
-	status          *DownloadStatus
-	instanceState   *InstanceState
-	completed       <-chan struct{}
-	err             error
-	resetController *ResetController
-	isReloadWorker  bool //是否重载worker, 单线程模式不重载
+type (
+	//Monitor 线程监控器
+	Monitor struct {
+		workers         WorkerList
+		status          *transfer.DownloadStatus
+		instanceState   *InstanceState
+		completed       chan struct{}
+		err             error
+		resetController *ResetController
+		isReloadWorker  bool //是否重载worker, 单线程模式不重载
 
-	// 临时变量
-	lastAvaliableIndex int
-	allWorkerRanges    RangeList // worker 的 Range 内存地址, 必须不变
-	allWorkerRangesMu  sync.Mutex
-}
+		// 临时变量
+		lastAvaliableIndex int
+		allWorkerRanges    transfer.RangeList // worker 的 Range 内存地址, 必须不变
+		allWorkerRangesMu  sync.Mutex
+	}
+
+	// RangeWorkerFunc 遍历workers的函数
+	RangeWorkerFunc func(key int, worker *Worker) bool
+)
 
 //NewMonitor 初始化Monitor
 func NewMonitor() *Monitor {
@@ -45,7 +48,7 @@ func (mt *Monitor) lazyInit() {
 		mt.workers = make(WorkerList, 0, 100)
 	}
 	if mt.status == nil {
-		mt.status = NewDownloadStatus()
+		mt.status = transfer.NewDownloadStatus()
 	}
 	if mt.resetController == nil {
 		mt.resetController = NewResetController(80)
@@ -71,7 +74,7 @@ func (mt *Monitor) SetWorkers(workers WorkerList) {
 }
 
 //SetStatus 设置DownloadStatus
-func (mt *Monitor) SetStatus(status *DownloadStatus) {
+func (mt *Monitor) SetStatus(status *transfer.DownloadStatus) {
 	mt.status = status
 }
 
@@ -81,7 +84,7 @@ func (mt *Monitor) SetInstanceState(instanceState *InstanceState) {
 }
 
 //Status 返回DownloadStatus
-func (mt *Monitor) Status() *DownloadStatus {
+func (mt *Monitor) Status() *transfer.DownloadStatus {
 	return mt.status
 }
 
@@ -93,23 +96,6 @@ func (mt *Monitor) Err() error {
 //CompletedChan 获取completed chan
 func (mt *Monitor) CompletedChan() <-chan struct{} {
 	return mt.completed
-}
-
-//GetSpeedsPerSecondFunc 获取每秒的速度, 返回获取速度的函数
-func (mt *Monitor) GetSpeedsPerSecondFunc() func() int64 {
-	if mt.status == nil {
-		return nil
-	}
-	old := mt.status.Downloaded()
-	nowTime := time.Now()
-	return func() int64 {
-		d := mt.status.Downloaded() - old
-		s := time.Since(nowTime)
-
-		old = mt.status.Downloaded()
-		nowTime = time.Now()
-		return int64(float64(d) / s.Seconds())
-	}
 }
 
 //GetAvaliableWorker 获取空闲的worker
@@ -127,14 +113,14 @@ func (mt *Monitor) GetAvaliableWorker() *Worker {
 }
 
 //GetAllWorkersRange 获取所有worker的范围
-func (mt *Monitor) GetAllWorkersRange() RangeList {
+func (mt *Monitor) GetAllWorkersRange() transfer.RangeList {
 	mt.allWorkerRangesMu.Lock()
 	defer mt.allWorkerRangesMu.Unlock()
 
 	if mt.allWorkerRanges != nil && len(mt.allWorkerRanges) == len(mt.workers) {
 		return mt.allWorkerRanges
 	}
-	mt.allWorkerRanges = make(RangeList, 0, len(mt.workers))
+	mt.allWorkerRanges = make(transfer.RangeList, 0, len(mt.workers))
 	for _, worker := range mt.workers {
 		mt.allWorkerRanges = append(mt.allWorkerRanges, worker.GetRange())
 	}
@@ -172,10 +158,10 @@ func (mt *Monitor) IsLeftWorkersAllFailed() bool {
 	return failedNum != 0
 }
 
-//AllCompleted 全部完成则发送消息
-func (mt *Monitor) AllCompleted() <-chan struct{} {
+//registerAllCompleted 全部完成则发送消息
+func (mt *Monitor) registerAllCompleted() {
+	mt.completed = make(chan struct{}, 0)
 	var (
-		c           = make(chan struct{}, 0)
 		workerNum   = len(mt.workers)
 		completeNum = 0
 	)
@@ -184,28 +170,26 @@ func (mt *Monitor) AllCompleted() <-chan struct{} {
 		for {
 			time.Sleep(1 * time.Second)
 
-			if mt.status != nil && mt.status.gen != nil && !mt.status.gen.IsDone() {
-				continue
-			}
-
 			completeNum = 0
 			for _, worker := range mt.workers {
 				switch worker.GetStatus().StatusCode() {
 				case StatusCodeInternalError:
 					mt.err = fmt.Errorf("ERROR: fatal internal error: %s", worker.Err())
-					close(c)
+					close(mt.completed)
 					return
 				case StatusCodeSuccessed, StatusCodeCanceled:
 					completeNum++
 				}
 			}
-			if completeNum >= workerNum {
-				close(c)
+			// status 在 lazyInit 之后, 不可能为空
+			// 完成条件: 所有worker 都已经完成, 且 rangeGen 已生成完毕
+			gen := mt.status.RangeListGen()
+			if completeNum >= workerNum && (gen == nil || gen.IsDone()) { // 已完成
+				close(mt.completed)
 				return
 			}
 		}
 	}()
-	return c
 }
 
 //ResetFailedAndNetErrorWorkers 重设部分网络错误的worker
@@ -233,7 +217,7 @@ func (mt *Monitor) ResetFailedAndNetErrorWorkers() {
 }
 
 //RangeWorker 遍历worker
-func (mt *Monitor) RangeWorker(f func(key int, worker *Worker) bool) {
+func (mt *Monitor) RangeWorker(f RangeWorkerFunc) {
 	for k := range mt.workers {
 		if !f(k, mt.workers[k]) {
 			break
@@ -265,7 +249,11 @@ func (mt *Monitor) Resume() {
 
 // TryAddNewWork 尝试加入新range
 func (mt *Monitor) TryAddNewWork() {
-	if mt.status == nil || mt.status.gen == nil || mt.status.gen.IsDone() {
+	if mt.status == nil {
+		return
+	}
+	gen := mt.status.RangeListGen()
+	if gen == nil || gen.IsDone() {
 		return
 	}
 
@@ -279,7 +267,7 @@ func (mt *Monitor) TryAddNewWork() {
 	}
 
 	// 有空闲的range, 执行
-	_, r := mt.status.gen.GenRange()
+	_, r := gen.GenRange()
 	if r == nil {
 		// 没有range了
 		return
@@ -382,7 +370,9 @@ func (mt *Monitor) Execute(cancelCtx context.Context) {
 		go worker.Execute()
 	}
 
-	mt.completed = mt.AllCompleted()
+	mt.registerAllCompleted() // 注册completed
+	ticker := time.NewTicker(990 * time.Millisecond)
+	defer ticker.Stop()
 
 	//开始监控
 	for {
@@ -397,19 +387,17 @@ func (mt *Monitor) Execute(cancelCtx context.Context) {
 			return
 		case <-mt.completed:
 			return
-		default:
-			time.Sleep(1 * time.Second)
-
+		case <-ticker.C:
 			// 初始化监控工作
 			mt.ResetFailedAndNetErrorWorkers()
 
-			mt.status.updateSpeeds()
+			mt.status.UpdateSpeeds() // 更新速度
 
 			// 保存断点信息到文件
 			if mt.instanceState != nil {
-				mt.instanceState.Put(&InstanceInfo{
-					DlStatus: mt.status,
-					Ranges:   mt.GetAllWorkersRange(),
+				mt.instanceState.Put(&transfer.DownloadInstanceInfo{
+					DownloadStatus: mt.status,
+					Ranges:         mt.GetAllWorkersRange(),
 				})
 			}
 
@@ -428,7 +416,7 @@ func (mt *Monitor) Execute(cancelCtx context.Context) {
 				if isLeftWorkersAllFailed {
 					pcsverbose.Verbosef("DEBUG: monitor: All workers failed\n")
 				}
-				mt.status.ResetMaxSpeeds() //清空统计
+				mt.status.StoreMaxSpeeds(0) //清空统计
 
 				// 先进行动态分配线程
 				pcsverbose.Verbosef("DEBUG: monitor: start duplicate.\n")

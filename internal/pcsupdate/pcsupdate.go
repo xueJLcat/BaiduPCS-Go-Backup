@@ -8,17 +8,19 @@ import (
 	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
 	"github.com/iikira/BaiduPCS-Go/pcsliner"
 	"github.com/iikira/BaiduPCS-Go/pcsutil"
+	"github.com/iikira/BaiduPCS-Go/pcsutil/cachepool"
 	"github.com/iikira/BaiduPCS-Go/pcsutil/checkaccess"
 	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
 	"github.com/iikira/BaiduPCS-Go/pcsutil/jsonhelper"
 	"github.com/iikira/BaiduPCS-Go/requester/downloader"
 	"github.com/iikira/BaiduPCS-Go/requester/rio"
+	"github.com/iikira/BaiduPCS-Go/requester/transfer"
+	"net/http"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const (
@@ -40,7 +42,7 @@ func CheckUpdate(version string, yes bool) {
 	}
 	fmt.Println("检测更新中, 稍候...")
 	c := pcsconfig.Config.HTTPClient()
-	resp, err := c.Req("GET", "https://api.github.com/repos/iikira/BaiduPCS-Go/releases/latest", nil, nil)
+	resp, err := c.Req(http.MethodGet, "https://api.github.com/repos/iikira/BaiduPCS-Go/releases/latest", nil, nil)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
@@ -167,55 +169,41 @@ func CheckUpdate(version string, yes bool) {
 	fmt.Printf("准备下载更新: %s\n", target.filename)
 
 	// 开始下载
-	buf := rio.NewBuffer(make([]byte, target.size))
+	buf := rio.NewBuffer(cachepool.RawMallocByteSlice(int(target.size)))
 	der := downloader.NewDownloader(target.downloadURL, buf, &downloader.Config{
 		MaxParallel: 20,
 		CacheSize:   10000,
 	})
 	der.SetClient(c)
 
-	exitChan := make(chan struct{})
-	der.OnExecute(func() {
-		defer fmt.Println()
-		var (
-			ds                            = der.GetDownloadStatusChan()
-			downloaded, totalSize, speeds int64
-			leftStr                       string
-		)
-		for {
-			select {
-			case <-exitChan:
-				return
-			case v, ok := <-ds:
-				if !ok { // channel 已经关闭
-					return
-				}
-
-				downloaded, totalSize, speeds = v.Downloaded(), v.TotalSize(), v.SpeedsPerSecond()
-				if speeds <= 0 {
-					leftStr = "-"
-				} else {
-					leftStr = (time.Duration((totalSize-downloaded)/(speeds)) * time.Second).String()
-				}
-
-				fmt.Printf("\r ↓ %s/%s %s/s in %s, left %s ............",
-					converter.ConvertFileSize(v.Downloaded(), 2),
-					converter.ConvertFileSize(v.TotalSize(), 2),
-					converter.ConvertFileSize(v.SpeedsPerSecond(), 2),
-					v.TimeElapsed()/1e7*1e7, leftStr,
-				)
-			}
+	der.OnDownloadStatusEvent(func(status transfer.DownloadStatuser, workersCallback func(downloader.RangeWorkerFunc)) {
+		var leftStr string
+		left := status.TimeLeft()
+		if left < 0 {
+			leftStr = "-"
+		} else {
+			leftStr = left.String()
 		}
+
+		fmt.Printf("\r ↓ %s/%s %s/s in %s, left %s ............",
+			converter.ConvertFileSize(status.Downloaded(), 2),
+			converter.ConvertFileSize(status.TotalSize(), 2),
+			converter.ConvertFileSize(status.SpeedsPerSecond(), 2),
+			status.TimeElapsed()/1e7*1e7, leftStr,
+		)
+	})
+	der.OnFinish(func() {
+		fmt.Println()
+	})
+	der.OnSuccess(func() {
+		fmt.Printf("下载完毕\n")
 	})
 
 	err = der.Execute()
-	close(exitChan)
 	if err != nil {
 		fmt.Printf("下载发生错误: %s\n", err)
 		return
 	}
-
-	fmt.Printf("下载完毕\n")
 
 	// 读取文件
 	reader, err := zip.NewReader(bytes.NewReader(buf.Bytes()), target.size)

@@ -1,49 +1,27 @@
 package downloader
 
 import (
-	"sync"
-	"sync/atomic"
-	"time"
+	"github.com/iikira/BaiduPCS-Go/requester/transfer"
 )
 
-//Status 状态
-type Status interface {
-	StatusCode() StatusCode //状态码
-	StatusText() string
-}
+type (
+	//WorkerStatuser 状态
+	WorkerStatuser interface {
+		StatusCode() StatusCode //状态码
+		StatusText() string
+	}
 
-//StatusCode 状态码
-type StatusCode int
+	//StatusCode 状态码
+	StatusCode int
 
-//WorkerStatus worker状态
-type WorkerStatus struct {
-	statusCode StatusCode
-}
+	//WorkerStatus worker状态
+	WorkerStatus struct {
+		statusCode StatusCode
+	}
 
-//DlStatus 下载状态接口
-type DlStatus interface {
-	TotalSize() int64
-	Downloaded() int64
-	SpeedsPerSecond() int64
-	TimeElapsed() time.Duration
-}
-
-//DownloadStatus 下载状态及统计信息
-type DownloadStatus struct {
-	totalSize       int64 // 总大小
-	downloaded      int64 // 已下载的数据量
-	speedsPerSecond int64 // 下载速度
-	maxSpeeds       int64 // 最大下载速度
-
-	speedsDownloaded int64 // 用于统计数据的downloaded
-	oldDownloaded    int64
-	timeElapsed      time.Duration // 下载的时间
-	nowTime          time.Time     // 时间, 用于计算速度
-	sinceNowTime     time.Duration
-
-	gen *RangeListGen // Range生成状态
-	mu  sync.Mutex
-}
+	// DownloadStatusFunc 下载状态处理函数
+	DownloadStatusFunc func(status transfer.DownloadStatuser, workersCallback func(RangeWorkerFunc))
+)
 
 const (
 	//StatusCodeInit 初始化
@@ -124,102 +102,4 @@ func (ws *WorkerStatus) StatusCode() StatusCode {
 //StatusText 返回状态信息
 func (ws *WorkerStatus) StatusText() string {
 	return GetStatusText(ws.statusCode)
-}
-
-//NewDownloadStatus 初始化DownloadStatus
-func NewDownloadStatus() *DownloadStatus {
-	return &DownloadStatus{
-		nowTime: time.Now(),
-	}
-}
-
-//Add 实现Adder接口
-func (ds *DownloadStatus) Add(i int64) {
-	ds.AddDownloaded(i)
-}
-
-//AddDownloaded 增加已下载数据量
-func (ds *DownloadStatus) AddDownloaded(d int64) {
-	atomic.AddInt64(&ds.downloaded, d)
-}
-
-//AddSpeedsDownloaded 增加已下载数据量, 用于统计速度
-func (ds *DownloadStatus) AddSpeedsDownloaded(d int64) {
-	atomic.AddInt64(&ds.speedsDownloaded, d)
-	ds.updateSpeeds()
-}
-
-func (ds *DownloadStatus) updateSpeeds() {
-	ds.mu.Lock()
-	defer ds.mu.Unlock()
-
-	if ds.nowTime.Unix() <= 0 {
-		ds.nowTime = time.Now()
-	}
-
-	ds.sinceNowTime = time.Since(ds.nowTime)
-	seconds := ds.sinceNowTime.Seconds()
-	if seconds < 0.5 {
-		return
-	}
-
-	downloaded := ds.SpeedsDownloaded() - ds.oldDownloaded
-	speeds := int64(float64(downloaded) / seconds)
-	ds.StoreSpeedsPerSecond(speeds)
-	if speeds > ds.MaxSpeeds() {
-		ds.StoreMaxSpeeds(ds.speedsPerSecond)
-	}
-
-	ds.nowTime = time.Now()
-	ds.oldDownloaded = ds.SpeedsDownloaded()
-}
-
-//ResetMaxSpeeds 清空最大速度统计
-func (ds *DownloadStatus) ResetMaxSpeeds() {
-	ds.StoreMaxSpeeds(0)
-}
-
-//StoreMaxSpeeds 储存最大速度, 原子操作
-func (ds *DownloadStatus) StoreMaxSpeeds(speeds int64) {
-	atomic.StoreInt64(&ds.maxSpeeds, speeds)
-}
-
-//StoreSpeedsPerSecond 储存速度, 原子操作
-func (ds *DownloadStatus) StoreSpeedsPerSecond(speeds int64) {
-	atomic.StoreInt64(&ds.speedsPerSecond, speeds)
-}
-
-//TotalSize 返回总大小
-func (ds *DownloadStatus) TotalSize() int64 {
-	return atomic.LoadInt64(&ds.totalSize)
-}
-
-//Downloaded 返回已下载数据量
-func (ds *DownloadStatus) Downloaded() int64 {
-	return atomic.LoadInt64(&ds.downloaded)
-}
-
-//SpeedsDownloaded 返回用于统计速度的已下载数据量
-func (ds *DownloadStatus) SpeedsDownloaded() int64 {
-	return atomic.LoadInt64(&ds.speedsDownloaded)
-}
-
-//SpeedsPerSecond 返回每秒速度
-func (ds *DownloadStatus) SpeedsPerSecond() int64 {
-	return atomic.LoadInt64(&ds.speedsPerSecond)
-}
-
-//MaxSpeeds 返回最大速度
-func (ds *DownloadStatus) MaxSpeeds() int64 {
-	return atomic.LoadInt64(&ds.maxSpeeds)
-}
-
-//TimeElapsed 返回花费的时间
-func (ds *DownloadStatus) TimeElapsed() time.Duration {
-	return ds.timeElapsed
-}
-
-// RangeListGen 返回RangeListGen
-func (ds *DownloadStatus) RangeListGen() *RangeListGen {
-	return ds.gen
 }

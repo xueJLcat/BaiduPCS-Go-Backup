@@ -44,7 +44,7 @@ const (
 
 var (
 	// Version 版本号
-	Version = "v3.6.9"
+	Version = "v3.7.0"
 
 	historyFilePath = filepath.Join(pcsconfig.GetConfigDir(), "pcs_command_history.txt")
 	reloadFn        = func(c *cli.Context) error {
@@ -78,7 +78,7 @@ func init() {
 	}
 
 	if pcsweb.GlobalSessions == nil {
-		pcsweb.GlobalSessions, err = pcsweb.NewSessionManager("memory", "goSessionid", 90 * 24 * 3600)
+		pcsweb.GlobalSessions, err = pcsweb.NewSessionManager("memory", "goSessionid", 90*24*3600)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -1186,10 +1186,18 @@ func main() {
 					Usage:     "修改程序配置项",
 					UsageText: app.Name + " config set [arguments...]",
 					Description: `
+	注意:
+		可通过设置环境变量 BAIDUPCS_GO_CONFIG_DIR, 指定配置文件存放的目录.
+
+		谨慎修改 appid, user_agent, pcs_ua, pan_ua 的值, 否则访问网盘服务器时, 可能会出现错误
+		cache_size 的值支持可选设置单位了, 单位不区分大小写, b 和 B 均表示字节的意思, 如 64KB, 1MB, 32kb, 65536b, 65536
+		max_upload_parallel, max_download_load 的值支持可选设置单位了, 单位为每秒的传输速率, 后缀'/s' 可省略, 如 2MB/s, 2MB, 2m, 2mb 均为一个意思
+
 	例子:
-		BaiduPCS-Go config set -appid=260149
+		BaiduPCS-Go config set -appid=266719
 		BaiduPCS-Go config set -enable_https=false
-		BaiduPCS-Go config set -user_agent="netdisk;1.0"
+		BaiduPCS-Go config set -user_agent="netdisk;2.2.51.6;netdisk;10.0.63;PC;android-android"
+		BaiduPCS-Go config set -cache_size 64KB
 		BaiduPCS-Go config set -cache_size 16384 -max_parallel 200 -savedir D:/download`,
 					Action: func(c *cli.Context) error {
 						if c.NumFlags() <= 0 || c.NArg() > 0 {
@@ -1213,7 +1221,11 @@ func main() {
 							pcsconfig.Config.SetUserAgent(c.String("pan_ua"))
 						}
 						if c.IsSet("cache_size") {
-							pcsconfig.Config.CacheSize = c.Int("cache_size")
+							err := pcsconfig.Config.SetCacheSizeByStr(c.String("cache_size"))
+							if err != nil {
+								fmt.Printf("设置 cache_size 错误: %s\n", err)
+								return nil
+							}
 						}
 						if c.IsSet("max_parallel") {
 							pcsconfig.Config.MaxParallel = c.Int("max_parallel")
@@ -1223,6 +1235,20 @@ func main() {
 						}
 						if c.IsSet("max_download_load") {
 							pcsconfig.Config.MaxDownloadLoad = c.Int("max_download_load")
+						}
+						if c.IsSet("max_download_rate") {
+							err := pcsconfig.Config.SetMaxDownloadRateByStr(c.String("max_download_rate"))
+							if err != nil {
+								fmt.Printf("设置 max_download_rate 错误: %s\n", err)
+								return nil
+							}
+						}
+						if c.IsSet("max_upload_rate") {
+							err := pcsconfig.Config.SetMaxUploadRateByStr(c.String("max_upload_rate"))
+							if err != nil {
+								fmt.Printf("设置 max_upload_rate 错误: %s\n", err)
+								return nil
+							}
 						}
 						if c.IsSet("savedir") {
 							pcsconfig.Config.SaveDir = c.String("savedir")
@@ -1250,7 +1276,7 @@ func main() {
 							Name:  "appid",
 							Usage: "百度 PCS 应用ID",
 						},
-						cli.IntFlag{
+						cli.StringFlag{
 							Name:  "cache_size",
 							Usage: "下载缓存",
 						},
@@ -1265,6 +1291,14 @@ func main() {
 						cli.IntFlag{
 							Name:  "max_download_load",
 							Usage: "同时进行下载文件的最大数量",
+						},
+						cli.StringFlag{
+							Name:  "max_download_rate",
+							Usage: "限制最大下载速度, 0代表不限制",
+						},
+						cli.StringFlag{
+							Name:  "max_upload_rate",
+							Usage: "限制最大上传速度, 0代表不限制",
 						},
 						cli.StringFlag{
 							Name:  "savedir",

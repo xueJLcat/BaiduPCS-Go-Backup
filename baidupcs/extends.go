@@ -5,10 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/iikira/BaiduPCS-Go/baidupcs/pcserror"
+	"github.com/iikira/BaiduPCS-Go/pcsutil/cachepool"
 	"github.com/iikira/BaiduPCS-Go/pcsutil/escaper"
 	"github.com/iikira/BaiduPCS-Go/requester/downloader"
 	"io"
 	"mime"
+	"net/http"
 	"net/url"
 	"path"
 	"strconv"
@@ -119,7 +121,7 @@ func (pcs *BaiduPCS) GetRapidUploadInfoByLink(link string, compareRInfo *RapidUp
 		header["Range"] = "bytes=0-" + strconv.FormatInt(SliceMD5Size-1, 10)
 	}
 
-	resp, err := pcs.client.Req("GET", link, nil, header)
+	resp, err := pcs.client.Req(http.MethodGet, link, nil, header)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
@@ -219,7 +221,7 @@ func (pcs *BaiduPCS) GetRapidUploadInfoByLink(link string, compareRInfo *RapidUp
 		}, nil
 	}
 
-	buf := make([]byte, int(SliceMD5Size))
+	buf := cachepool.RawMallocByteSlice(int(SliceMD5Size))
 	_, err = io.ReadFull(resp.Body, buf)
 	if err != nil {
 		errInfo.SetNetError(err)

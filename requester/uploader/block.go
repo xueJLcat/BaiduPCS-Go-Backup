@@ -3,6 +3,8 @@ package uploader
 import (
 	"bufio"
 	"fmt"
+	"github.com/iikira/BaiduPCS-Go/requester/rio/speeds"
+	"github.com/iikira/BaiduPCS-Go/requester/transfer"
 	"io"
 	"os"
 	"sync"
@@ -13,21 +15,17 @@ type (
 	SplitUnit interface {
 		Readed64
 		io.Seeker
-		Range() ReadRange
+		Range() transfer.Range
 		Left() int64
 	}
 
-	// ReadRange 读取io.ReaderAt范围
-	ReadRange struct {
-		Begin int64 `json:"begin"`
-		End   int64 `json:"end"`
-	}
-
 	fileBlock struct {
-		readRange ReadRange
-		readed    int64
-		readerAt  io.ReaderAt
-		mu        sync.Mutex
+		readRange     transfer.Range
+		readed        int64
+		readerAt      io.ReaderAt
+		speedsStatRef *speeds.Speeds
+		rateLimit     *speeds.RateLimit
+		mu            sync.Mutex
 	}
 
 	bufioFileBlock struct {
@@ -38,53 +36,26 @@ type (
 
 // SplitBlock 文件分块
 func SplitBlock(fileSize, blockSize int64) (blockList []*BlockState) {
-	blocksNum := int(fileSize / blockSize)
-	if fileSize%blockSize != 0 {
-		blocksNum++
-	}
-
-	blockList = make([]*BlockState, 0, blocksNum)
-	var (
-		id         int
-		begin, end int64
-	)
-
-	for i := 0; i < blocksNum-1; i++ {
-		end += blockSize
+	gen := transfer.NewRangeListGenBlockSize(fileSize, 0, blockSize)
+	rangeCount := gen.RangeCount()
+	blockList = make([]*BlockState, 0, rangeCount)
+	for i := 0; i < rangeCount; i++ {
+		id, r := gen.GenRange()
 		blockList = append(blockList, &BlockState{
-			ID: id,
-			Range: ReadRange{
-				Begin: begin,
-				End:   end,
-			},
+			ID:    id,
+			Range: *r,
 		})
-		id++
-		begin = end
 	}
-
-	blockList = append(blockList, &BlockState{
-		ID: id,
-		Range: ReadRange{
-			Begin: begin,
-			End:   fileSize,
-		},
-	})
 	return
 }
 
-// NewSplitUnit io.ReaderAt实现SplitUnit接口
-func NewSplitUnit(readerAt io.ReaderAt, readRange ReadRange) SplitUnit {
-	return &fileBlock{
-		readerAt:  readerAt,
-		readRange: readRange,
-	}
-}
-
-// NewBufioSplitUnit io.ReaderAt实现SplitUnit接口
-func NewBufioSplitUnit(readerAt io.ReaderAt, readRange ReadRange) SplitUnit {
+// NewBufioSplitUnit io.ReaderAt实现SplitUnit接口, 有Buffer支持
+func NewBufioSplitUnit(readerAt io.ReaderAt, readRange transfer.Range, speedsStat *speeds.Speeds, rateLimit *speeds.RateLimit) SplitUnit {
 	su := &fileBlock{
-		readerAt:  readerAt,
-		readRange: readRange,
+		readerAt:      readerAt,
+		readRange:     readRange,
+		speedsStatRef: speedsStat,
+		rateLimit:     rateLimit,
 	}
 	return &bufioFileBlock{
 		fileBlock: su,
@@ -93,9 +64,10 @@ func NewBufioSplitUnit(readerAt io.ReaderAt, readRange ReadRange) SplitUnit {
 }
 
 func (bfb *bufioFileBlock) Read(b []byte) (n int, err error) {
-	return bfb.bufio.Read(b)
+	return bfb.bufio.Read(b) // 间接调用fileBlock 的Read
 }
 
+// Read 只允许一个线程读同一个文件
 func (fb *fileBlock) Read(b []byte) (n int, err error) {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
@@ -111,7 +83,14 @@ func (fb *fileBlock) Read(b []byte) (n int, err error) {
 		n, err = fb.readerAt.ReadAt(b, fb.readed+fb.readRange.Begin)
 	}
 
-	fb.readed += int64(n)
+	n64 := int64(n)
+	fb.readed += n64
+	if fb.rateLimit != nil {
+		fb.rateLimit.Add(n64) // 限速阻塞
+	}
+	if fb.speedsStatRef != nil {
+		fb.speedsStatRef.Add(n64)
+	}
 	return
 }
 
@@ -143,7 +122,7 @@ func (fb *fileBlock) Left() int64 {
 	return fb.readRange.End - fb.readRange.Begin - fb.readed
 }
 
-func (fb *fileBlock) Range() ReadRange {
+func (fb *fileBlock) Range() transfer.Range {
 	return fb.readRange
 }
 

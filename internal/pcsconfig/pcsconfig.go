@@ -63,6 +63,9 @@ type PCSConfig struct {
 	MaxUploadParallel int `json:"max_upload_parallel"` // 最大上传并发量
 	MaxDownloadLoad   int `json:"max_download_load"`   // 同时进行下载文件的最大数量
 
+	MaxDownloadRate int64 `json:"max_download_rate"` // 限制最大下载速度
+	MaxUploadRate   int64 `json:"max_upload_rate"`   // 限制最大上传速度
+
 	UserAgent   string `json:"user_agent"`   // 浏览器标识
 	PCSUA       string `json:"pcs_ua"`       // PCS浏览器标识
 	PanUA       string `json:"pan_ua"`       // PAN浏览器标识
@@ -244,7 +247,7 @@ func (c *PCSConfig) loadConfigFromFile() (err error) {
 func (c *PCSConfig) initDefaultConfig() {
 	c.AppID = 266719
 	c.CacheSize = 65536
-	c.MaxParallel = 128
+	c.MaxParallel = 8
 	c.MaxUploadParallel = 8
 	c.MaxDownloadLoad = 1
 	c.UserAgent = requester.UserAgent

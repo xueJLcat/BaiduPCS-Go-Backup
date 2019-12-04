@@ -15,6 +15,7 @@ import (
 	"github.com/iikira/BaiduPCS-Go/pcsutil/waitgroup"
 	"github.com/iikira/BaiduPCS-Go/requester"
 	"github.com/iikira/BaiduPCS-Go/requester/downloader"
+	"github.com/iikira/BaiduPCS-Go/requester/transfer"
 	"github.com/oleiade/lane"
 	"golang.org/x/net/websocket"
 	"io"
@@ -52,14 +53,14 @@ var (
 	DownloaderMap = make(map[int]*downloader.Downloader)
 )
 
-type (
-	// ListTask 队列状态 (基类)
-	ListTask struct {
-		ID       int // 任务id
-		MaxRetry int // 最大重试次数
-		retry    int // 任务失败的重试次数
-	}
+// ListTask 队列状态 (基类)
+type ListTask struct {
+	ID       int // 任务id
+	MaxRetry int // 最大重试次数
+	retry    int // 任务失败的重试次数
+}
 
+type (
 	// dtask 下载任务
 	dtask struct {
 		ListTask
@@ -99,12 +100,11 @@ func downloadPrintFormat(load int) string {
 	return "[%d] ↓ %s/%s %s/s in %s, left %s ...\n"
 }
 
-func download(conn *websocket.Conn, id int, downloadURL, savePath string, loadBalansers []string, client *requester.HTTPClient, newCfg downloader.Config, downloadOptions *DownloadOptions) error {
+func download(conn *websocket.Conn, id int, fileInfo *baidupcs.FileDirectory, downloadURL, savePath string, loadBalansers []string, client *requester.HTTPClient, newCfg downloader.Config, downloadOptions *DownloadOptions) error {
 	var (
-		writer    downloader.Writer
-		file      *os.File
-		warn, err error
-		exitChan  chan struct{}
+		writer downloader.Writer
+		file   *os.File
+		err    error
 	)
 
 	if !newCfg.IsTest {
@@ -123,10 +123,7 @@ func download(conn *websocket.Conn, id int, downloadURL, savePath string, loadBa
 		}
 
 		// 打开文件
-		writer, file, warn, err = downloader.NewDownloaderWriterByFilename(savePath, os.O_CREATE|os.O_WRONLY, 0666)
-		if warn != nil {
-			fmt.Fprintf(downloadOptions.Out, "warn: %s\n", warn)
-		}
+		writer, file, err = downloader.NewDownloaderWriterByFilename(savePath, os.O_CREATE|os.O_WRONLY, 0666)
 		if err != nil {
 			sendResponse(conn, 2, -4, "初始化下载发生错误", "")
 		}
@@ -141,74 +138,57 @@ func download(conn *websocket.Conn, id int, downloadURL, savePath string, loadBa
 		return pcserror.DecodePCSJSONError(baidupcs.OperationDownloadFile, respBody)
 	})
 
-	exitChan = make(chan struct{})
-
-	download.OnExecute(func() {
+	var (
+		format = downloadPrintFormat(downloadOptions.Load)
+	)
+	download.OnDownloadStatusEvent(func(status transfer.DownloadStatuser, workersCallback func(downloader.RangeWorkerFunc)) {
+		DownloaderMap[id] = download
 		if downloadOptions.IsPrintStatus {
-			go func() {
-				for {
-					time.Sleep(1 * time.Second)
-					select {
-					case <-exitChan:
-						return
-					default:
-						download.PrintAllWorkers()
-					}
-				}
-			}()
+			// 输出所有的worker状态
+			var (
+				builder = &strings.Builder{}
+				tb      = pcstable.NewTable(builder)
+			)
+			tb.SetHeader([]string{"#", "status", "range", "left", "speeds", "error"})
+			workersCallback(func(key int, worker *downloader.Worker) bool {
+				wrange := worker.GetRange()
+				tb.Append([]string{fmt.Sprint(worker.ID()), worker.GetStatus().StatusText(), wrange.ShowDetails(), strconv.FormatInt(wrange.Len(), 10), strconv.FormatInt(worker.GetSpeedsPerSecond(), 10), fmt.Sprint(worker.Err())})
+				return true
+			})
+			tb.Render()
+			fmt.Fprintf(downloadOptions.Out, "\n\n"+builder.String())
+		}
+		var leftStr string
+		downloaded, totalSize, speeds := status.Downloaded(), status.TotalSize(), status.SpeedsPerSecond()
+		if speeds <= 0 {
+			leftStr = "-"
+		} else {
+			leftStr = (time.Duration((totalSize-downloaded)/(speeds)) * time.Second).String()
 		}
 
-		if newCfg.IsTest {
-			fmt.Fprintf(downloadOptions.Out, "[%d] 测试下载开始\n\n", id)
+		var avgSpeed int64 = 0
+		timeUsed := status.TimeElapsed()/1e7*1e7
+		timeSecond := status.TimeElapsed().Seconds()
+		if(int64(timeSecond) > 0){
+			avgSpeed = downloaded / int64(timeSecond)
 		}
+		//fmt.Println(timeUsed, timeSecond, avgSpeed)
 
-		var (
-			ds                            = download.GetDownloadStatusChan()
-			format                        = downloadPrintFormat(downloadOptions.Load)
-			downloaded, totalSize, speeds int64
-			leftStr                       string
+		fmt.Fprintf(downloadOptions.Out, format, id,
+			converter.ConvertFileSize(downloaded, 2),
+			converter.ConvertFileSize(totalSize, 2),
+			converter.ConvertFileSize(speeds, 2),
+			timeUsed, leftStr,
 		)
-		for {
-			select {
-			case <-exitChan:
-				return
-			case v, ok := <-ds:
-				if !ok { // channel 已经关闭
-					return
-				}
 
-				downloaded, totalSize, speeds = v.Downloaded(), v.TotalSize(), v.SpeedsPerSecond()
-				if speeds <= 0 {
-					leftStr = "-"
-				} else {
-					leftStr = (time.Duration((totalSize-downloaded)/(speeds)) * time.Second).String()
-				}
-
-				var avgSpeed int64 = 0
-				timeUsed := v.TimeElapsed()/1e7*1e7
-				timeSecond := v.TimeElapsed().Seconds()
-				if(int64(timeSecond) > 0){
-					avgSpeed = downloaded / int64(timeSecond)
-				}
-				//fmt.Println(timeUsed, timeSecond, avgSpeed)
-
-				fmt.Fprintf(downloadOptions.Out, format, id,
-					converter.ConvertFileSize(downloaded, 2),
-					converter.ConvertFileSize(totalSize, 2),
-					converter.ConvertFileSize(speeds, 2),
-					timeUsed, leftStr,
-				)
-
-				MsgBody = fmt.Sprintf("{\"LastID\": %d, \"download_size\": \"%s\", \"total_size\": \"%s\", \"percent\": %.2f, \"speed\": \"%s\", \"avg_speed\": \"%s\", \"time_used\": \"%s\", \"time_left\": \"%s\"}", id,
-					converter.ConvertFileSize(downloaded, 2),
-					converter.ConvertFileSize(totalSize, 2),
-					float64(downloaded) / float64(totalSize) * 100,
-					converter.ConvertFileSize(speeds, 2),
-					converter.ConvertFileSize(avgSpeed, 2),
-					timeUsed, leftStr)
-				sendResponse(conn, 2, 5, "下载中", MsgBody)
-			}
-		}
+		MsgBody = fmt.Sprintf("{\"LastID\": %d, \"download_size\": \"%s\", \"total_size\": \"%s\", \"percent\": %.2f, \"speed\": \"%s\", \"avg_speed\": \"%s\", \"time_used\": \"%s\", \"time_left\": \"%s\"}", id,
+			converter.ConvertFileSize(downloaded, 2),
+			converter.ConvertFileSize(totalSize, 2),
+			float64(downloaded) / float64(totalSize) * 100,
+			converter.ConvertFileSize(speeds, 2),
+			converter.ConvertFileSize(avgSpeed, 2),
+			timeUsed, leftStr)
+		sendResponse(conn, 2, 5, "下载中", MsgBody)
 	})
 	download.OnPause(func() {
 		MsgBody = fmt.Sprintf("{\"LastID\": %d}", id)
@@ -231,7 +211,6 @@ func download(conn *websocket.Conn, id int, downloadURL, savePath string, loadBa
 	})
 
 	err = download.Execute()
-	close(exitChan)
 	fmt.Fprintf(downloadOptions.Out, "\n")
 	if err != nil {
 			// 下载失败, 删去空文件
@@ -317,9 +296,10 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 
 	// 设置下载配置
 	cfg := &downloader.Config{
-		Mode:                       downloader.RangeGenMode_BlockSize,
+		Mode:                       transfer.RangeGenMode_BlockSize,
 		CacheSize:                  pcsconfig.Config.CacheSize,
 		BlockSize:                  baidupcs.MaxDownloadRangeSize,
+		MaxRate:                    pcsconfig.Config.MaxDownloadRate,
 		InstanceStateStorageFormat: downloader.InstanceStateStorageFormatProto3,
 		IsTest:                     options.IsTest,
 		TryHTTP:                    !pcsconfig.Config.EnableHTTPS,
@@ -590,7 +570,7 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 					}
 					client.SetTimeout(20 * time.Minute)
 					client.SetKeepAlive(true)
-					err = download(conn, task.ID, dlink, task.savePath, dlinks, client, *cfg, options)
+					err = download(conn, task.ID, task.downloadInfo, dlink, task.savePath, dlinks, client, *cfg, options)
 				} else {
 					if options.IsShareDownload || options.IsLocateDownload || options.IsLocatePanAPIDownload {
 						fmt.Fprintf(options.Out, "[%d] 错误: %s, 将使用默认的下载方式\n", task.ID, err)
@@ -602,7 +582,7 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 						h.SetKeepAlive(true)
 						h.SetTimeout(10 * time.Minute)
 
-						err := download(conn, task.ID, downloadURL, task.savePath, dlinks, h, *cfg, options)
+						err := download(conn, task.ID, task.downloadInfo, downloadURL, task.savePath, dlinks, h, *cfg, options)
 						if err != nil {
 							return err
 						}

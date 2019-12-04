@@ -4,7 +4,6 @@ package downloader
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"sync"
@@ -513,14 +512,14 @@ func (der *Downloader) PrintAllWorkers() {
 	if der.monitor == nil {
 		return
 	}
-	fmt.Println(der.monitor.ShowWorkers())
+	//fmt.Println(der.monitor.ShowWorkers())
 }
 
-func (der *Downloader) GetAllWorkersStatus() WorkersStructs {
+func (der *Downloader) GetAllWorkersStatus() string {
 	if der.monitor == nil {
-		return nil
+		return "不支持查看下载状态"
 	}
-	return der.monitor.ShowWorkersStruct()
+	return "不支持查看下载状态"
 }
 
 //OnExecute 设置开始下载事件

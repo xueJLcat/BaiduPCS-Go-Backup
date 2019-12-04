@@ -11,10 +11,10 @@
  * See https://goo.gl/2aRDsh
  */
 
-importScripts("https://storage.googleapis.com/workbox-cdn/releases/3.5.0/workbox-sw.js");
+importScripts("https://storage.googleapis.com/workbox-cdn/releases/3.6.3/workbox-sw.js");
 
 importScripts(
-  "/dist/precache-manifest.15abe24907aa35f8e0645f7b649313fe.js"
+  "/dist/precache-manifest.e389a3b3315fd4d2f23133d15c1599cf.js"
 );
 
 workbox.core.setCacheNameDetails({prefix: "baidu-pcs-web"});

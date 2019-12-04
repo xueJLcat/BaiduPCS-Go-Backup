@@ -74,7 +74,11 @@ func WSLogin(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 			sendResponse(conn, 1, 5, "账号或密码错误", "")
 		case "500001", "500002": // 验证码
 			if lj.ErrInfo.No == "500002" {
-				sendResponse(conn, 1, 4, "验证码错误", "")
+				if vcode != "" {
+					sendResponse(conn, 1, 4, "验证码错误", "")
+				} else {
+					lj = bc.BaiduLogin(username, password, "ABCD", vcodestr)
+				}
 			}
 			vcodestr = lj.Data.CodeString
 			if vcodestr == "" {
@@ -102,7 +106,6 @@ loginSuccess:
 	fmt.Println("百度帐号登录成功:", baidu.Name)
 	sendResponse(conn, 1, 7, baidu.Name, "")
 
-	println("globalSessions", GlobalSessions)
 	GlobalSessions.WebSocketUnLock(conn.Request())
 
 	if err = pcsconfig.Config.Save(); err != nil {

@@ -177,13 +177,12 @@ func (manager *Manager) UnLock(w http.ResponseWriter, r *http.Request) {
 func (manager *Manager) WebSocketUnLock(r *http.Request) {
 	manager.lock.Lock() //加锁
 	defer manager.lock.Unlock()
-	fmt.Print(manager)
 	cookie, _ := r.Cookie(manager.cookieName)
-	fmt.Println(11111111111, cookie)
-	sid, _ := url.QueryUnescape(cookie.Value) //反转义特殊符号
-	fmt.Println(2222222222222, cookie)
+	var sid = "baidupcsgo"
+	if cookie != nil {
+		sid, _ = url.QueryUnescape(cookie.Value) //反转义特殊符号
+	}
 	session, _ := manager.provider.SessionRead(sid)
-	fmt.Println(44444444444444444, session)
 	session.Set("lock", "false")
 	fmt.Println("成功解锁")
 

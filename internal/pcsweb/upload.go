@@ -347,16 +347,18 @@ func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *
 		stepUploadUpload:
 			task.step = StepUploadUpload
 			{
-				muer := uploader.NewMultiUploader(pcsupload.NewPCSUpload(pcs, task.savePath), rio.NewFileReaderAtLen64(task.localFileChecksum.GetFile()))
-				muer.SetParallel(opt.Parallel)
-
 				var blockSize int64
 				if opt.NotSplitFile {
 					blockSize = task.localFileChecksum.Length
 				} else {
 					blockSize = getBlockSize(task.localFileChecksum.Length)
 				}
-				muer.SetBlockSize(blockSize)
+
+				muer := uploader.NewMultiUploader(pcsupload.NewPCSUpload(pcs, task.savePath), rio.NewFileReaderAtLen64(task.localFileChecksum.GetFile()), &uploader.MultiUploaderConfig{
+					Parallel:  opt.Parallel,
+					BlockSize: blockSize,
+					MaxRate:   pcsconfig.Config.MaxUploadRate,
+				})
 
 				// 设置断点续传
 				if state != nil {
@@ -364,58 +366,44 @@ func RunUpload(conn *websocket.Conn, localPaths []string, savePath string, opt *
 				}
 
 				exitChan := make(chan struct{})
-				muer.OnExecute(func() {
-					statusChan := muer.GetStatusChan()
-					updateChan := muer.UpdateInstanceStateChan()
-					for {
-						select {
-						case <-exitChan:
-							return
-						case v, ok := <-statusChan:
-							if !ok {
-								return
-							}
-
-							if v.TotalSize() == 0 {
-								fmt.Printf("\r[%d] Prepareing upload...", task.ID)
-								continue
-							}
-
-							var leftStr string
-
-							uploaded, totalSize, speeds := v.Uploaded(), v.TotalSize(), v.SpeedsPerSecond()
-							if speeds <= 0 {
-								leftStr = "-"
-							} else {
-								leftStr = (time.Duration((totalSize-uploaded)/(speeds)) * time.Second).String()
-							}
-
-							var avgSpeed int64 = 0
-							timeUsed := v.TimeElapsed()/1e7*1e7
-							timeSecond := v.TimeElapsed().Seconds()
-							if(int64(timeSecond) > 0){
-								avgSpeed = uploaded / int64(timeSecond)
-							}
-
-							fmt.Printf("\r[%d] ↑ %s/%s %s/s in %s ............", task.ID,
-								converter.ConvertFileSize(uploaded, 2),
-								converter.ConvertFileSize(totalSize, 2),
-								converter.ConvertFileSize(speeds, 2),
-								v.TimeElapsed(),
-							)
-							MsgBody = fmt.Sprintf("{\"LastID\": %d, \"uploaded_size\": \"%s\", \"total_size\": \"%s\", \"percent\": %.2f, \"speed\": \"%s\", \"avg_speed\": \"%s\", \"time_used\": \"%s\", \"time_left\": \"%s\"}", task.ID,
-								converter.ConvertFileSize(uploaded, 2),
-								converter.ConvertFileSize(totalSize, 2),
-								float64(uploaded) / float64(totalSize) * 100,
-								converter.ConvertFileSize(speeds, 2),
-								converter.ConvertFileSize(avgSpeed, 2),
-								timeUsed, leftStr)
-							sendResponse(conn, 3, 4, "上传中", MsgBody)
-						case <-updateChan:
-							uploadDatabase.UpdateUploading(&task.localFileChecksum.LocalFileMeta, muer.InstanceState())
-							uploadDatabase.Save()
-						}
+				muer.OnUploadStatusEvent(func(status uploader.Status, updateChan <-chan struct{}) {
+					select {
+					case <-updateChan:
+						uploadDatabase.UpdateUploading(&task.localFileChecksum.LocalFileMeta, muer.InstanceState())
+						uploadDatabase.Save()
+					default:
 					}
+
+					var leftStr string
+
+					uploaded, totalSize, speeds := status.Uploaded(), status.TotalSize(), status.SpeedsPerSecond()
+					if speeds <= 0 {
+						leftStr = "-"
+					} else {
+						leftStr = (time.Duration((totalSize-uploaded)/(speeds)) * time.Second).String()
+					}
+					
+					var avgSpeed int64 = 0
+					timeUsed := status.TimeElapsed()/1e7*1e7
+					timeSecond := status.TimeElapsed().Seconds()
+					if(int64(timeSecond) > 0){
+						avgSpeed = uploaded / int64(timeSecond)
+					}
+
+					fmt.Printf("\r[%d] ↑ %s/%s %s/s in %s ............", task.ID,
+						converter.ConvertFileSize(uploaded, 2),
+						converter.ConvertFileSize(totalSize, 2),
+						converter.ConvertFileSize(speeds, 2),
+						status.TimeElapsed(),
+					)
+					MsgBody = fmt.Sprintf("{\"LastID\": %d, \"uploaded_size\": \"%s\", \"total_size\": \"%s\", \"percent\": %.2f, \"speed\": \"%s\", \"avg_speed\": \"%s\", \"time_used\": \"%s\", \"time_left\": \"%s\"}", task.ID,
+						converter.ConvertFileSize(uploaded, 2),
+						converter.ConvertFileSize(totalSize, 2),
+						float64(uploaded) / float64(totalSize) * 100,
+						converter.ConvertFileSize(speeds, 2),
+						converter.ConvertFileSize(avgSpeed, 2),
+						timeUsed, leftStr)
+					sendResponse(conn, 3, 4, "上传中", MsgBody)
 				})
 				muer.OnSuccess(func() {
 					close(exitChan)

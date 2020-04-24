@@ -129,9 +129,11 @@ func WSDownload(conn *websocket.Conn, rJson *simplejson.Json) (err error) {
 	method, _ := rJson.Get("method").String()
 
 	if method == "download" {
+		//取消默认检验，出错概率太大了...
 		options := &DownloadOptions{
 			IsTest:      false,
 			IsOverwrite: true,
+			NoCheck:     true,
 		}
 
 		paths, _ := rJson.Get("paths").StringArray()

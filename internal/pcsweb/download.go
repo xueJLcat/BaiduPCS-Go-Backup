@@ -237,6 +237,15 @@ func download(conn *websocket.Conn, id int, fileInfo *baidupcs.FileDirectory, do
 	}
 
 	if !newCfg.IsTest {
+		totalSize := fileSize(savePath)
+		MsgBody = fmt.Sprintf("{\"LastID\": %d, \"download_size\": \"%s\", \"total_size\": \"%s\", \"percent\": %.2f, \"speed\": \"%s\", \"avg_speed\": \"%s\", \"time_used\": \"%s\", \"time_left\": \"%s\"}", id,
+			converter.ConvertFileSize(totalSize, 2),
+			converter.ConvertFileSize(totalSize, 2),
+			float64(totalSize)/float64(totalSize)*100,
+			converter.ConvertFileSize(0, 2),
+			converter.ConvertFileSize(0, 2),
+			"0", "0")
+		sendResponse(conn, 2, 5, "下载中", MsgBody, true, true)
 		MsgBody = fmt.Sprintf("{\"LastID\": %d, \"savePath\": \"%s\"}", id, savePath)
 		sendResponse(conn, 2, 9, "下载完成", MsgBody, true, true)
 		fmt.Fprintf(downloadOptions.Out, "[%d] 下载完成, 保存位置: %s\n", id, savePath)
@@ -803,4 +812,11 @@ func fileExist(path string) bool {
 	}
 
 	return false
+}
+
+func fileSize(path string) int64 {
+	if info, err := os.Stat(path); err == nil {
+		return info.Size()
+	}
+	return 0
 }

@@ -2,11 +2,6 @@ package pcsweb
 
 import (
 	"fmt"
-	"github.com/iikira/BaiduPCS-Go/baidupcs"
-	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
-	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
-	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
-	"github.com/iikira/BaiduPCS-Go/pcsverbose"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -15,6 +10,12 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/iikira/BaiduPCS-Go/baidupcs"
+	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
+	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
+	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
+	"github.com/iikira/BaiduPCS-Go/pcsverbose"
 )
 
 var (
@@ -74,8 +75,10 @@ func LoginHandle(w http.ResponseWriter, r *http.Request) {
 	bduss := r.Form.Get("bduss")
 	if bduss == "" { // CheckLock
 		if GlobalSessions.CheckLock(w, r) {
+			fmt.Println("当前未登录，需要进行登录")
 			sendHttpErrorResponse(w, -3, "需要解锁")
 		} else {
+			fmt.Println("已经登录，无需再次登录")
 			sendHttpResponse(w, "无需解锁", "")
 		}
 		return
@@ -83,6 +86,7 @@ func LoginHandle(w http.ResponseWriter, r *http.Request) {
 
 	b, err := pcsconfig.Config.SetupUserByBDUSS(bduss, "", "")
 	if err != nil {
+		fmt.Println("BDUSS登录失败...")
 		sendHttpErrorResponse(w, -2, "BDUSS登录失败: "+err.Error())
 		return
 	}
@@ -335,59 +339,59 @@ func OptionsHandle(w http.ResponseWriter, r *http.Request) {
 		if rtype == "download" {
 			opts := config.DownloadOpts()
 			configJsons = append(configJsons, pcsOptsJSON{
-				Name:   "no_check",
-				Value:  opts.NoCheck,
-				Desc:   "下载文件完成后不校验文件",
+				Name:  "no_check",
+				Value: opts.NoCheck,
+				Desc:  "下载文件完成后不校验文件",
 			})
 			configJsons = append(configJsons, pcsOptsJSON{
-				Name:   "overwrite",
-				Value:  opts.IsOverwrite,
-				Desc:   "下载时覆盖已存在的文件",
+				Name:  "overwrite",
+				Value: opts.IsOverwrite,
+				Desc:  "下载时覆盖已存在的文件",
 			})
 			configJsons = append(configJsons, pcsOptsJSON{
-				Name:   "add_x",
-				Value:  opts.IsExecutedPermission,
-				Desc:   "为文件加上执行权限, (windows系统无效)",
+				Name:  "add_x",
+				Value: opts.IsExecutedPermission,
+				Desc:  "为文件加上执行权限, (windows系统无效)",
 			})
 			configJsons = append(configJsons, pcsOptsJSON{
-				Name:   "stream",
-				Value:  opts.IsStreaming,
-				Desc:   "以流式文件的方式下载",
+				Name:  "stream",
+				Value: opts.IsStreaming,
+				Desc:  "以流式文件的方式下载",
 			})
 			configJsons = append(configJsons, pcsOptsJSON{
-				Name:   "share",
-				Value:  opts.IsShareDownload,
-				Desc:   "以分享文件的方式获取下载链接来下载",
+				Name:  "share",
+				Value: opts.IsShareDownload,
+				Desc:  "以分享文件的方式获取下载链接来下载",
 			})
 			configJsons = append(configJsons, pcsOptsJSON{
-				Name:   "locate",
-				Value:  opts.IsLocateDownload,
-				Desc:   "以获取直链的方式来下载",
+				Name:  "locate",
+				Value: opts.IsLocateDownload,
+				Desc:  "以获取直链的方式来下载",
 			})
 			configJsons = append(configJsons, pcsOptsJSON{
-				Name:   "locate_pan",
-				Value:  opts.IsLocatePanAPIDownload,
-				Desc:   "从百度网盘首页获取直链来下载, 该下载方式需配合第三方服务器, 机密文件切勿使用此下载方式",
+				Name:  "locate_pan",
+				Value: opts.IsLocatePanAPIDownload,
+				Desc:  "从百度网盘首页获取直链来下载, 该下载方式需配合第三方服务器, 机密文件切勿使用此下载方式",
 			})
 			sendHttpResponse(w, "", configJsons)
 		}
 	}
 	if rmethod == "set" {
 		if rtype == "download" {
-			no_check , _ := strconv.ParseBool(r.Form.Get("no_check"))
-			overwrite , _ := strconv.ParseBool(r.Form.Get("overwrite"))
-			add_x , _ := strconv.ParseBool(r.Form.Get("add_x"))
-			stream , _ := strconv.ParseBool(r.Form.Get("stream"))
-			share , _ := strconv.ParseBool(r.Form.Get("share"))
-			locate , _ := strconv.ParseBool(r.Form.Get("locate"))
-			locate_pan , _ := strconv.ParseBool(r.Form.Get("locate_pan"))
+			no_check, _ := strconv.ParseBool(r.Form.Get("no_check"))
+			overwrite, _ := strconv.ParseBool(r.Form.Get("overwrite"))
+			add_x, _ := strconv.ParseBool(r.Form.Get("add_x"))
+			stream, _ := strconv.ParseBool(r.Form.Get("stream"))
+			share, _ := strconv.ParseBool(r.Form.Get("share"))
+			locate, _ := strconv.ParseBool(r.Form.Get("locate"))
+			locate_pan, _ := strconv.ParseBool(r.Form.Get("locate_pan"))
 			opt := pcsconfig.CDownloadOptions{
-				NoCheck: no_check,
-				IsOverwrite: overwrite,
-				IsExecutedPermission: add_x,
-				IsStreaming: stream,
-				IsShareDownload: share,
-				IsLocateDownload: locate,
+				NoCheck:                no_check,
+				IsOverwrite:            overwrite,
+				IsExecutedPermission:   add_x,
+				IsStreaming:            stream,
+				IsShareDownload:        share,
+				IsLocateDownload:       locate,
 				IsLocatePanAPIDownload: locate_pan,
 			}
 			config.SetDownloadOpts(opt)

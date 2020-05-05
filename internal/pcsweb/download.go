@@ -310,7 +310,7 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 				handleHTTPLinkURL(rawDlinks[0])
 				gid, err := rpcc.AddURI(rawDlinks[0].String(), opts)
 				if err == nil {
-					fmt.Printf("成功将 %s 送入Aria2下载列表，gid: %s\n", paths[k], gid)
+					fmt.Printf("成功将 %s 送入Aria2下载列表，并发数: %d，gid: %s\n", paths[k], opts["max-connection-per-server"], gid)
 				} else {
 					fmt.Printf("添加任务到aria2时出错: %s 请检查aria2配置是否正确\n", err)
 				}

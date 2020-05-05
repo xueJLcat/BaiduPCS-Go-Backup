@@ -1,6 +1,7 @@
 package pcsweb
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -27,6 +28,7 @@ import (
 	"github.com/iikira/BaiduPCS-Go/requester/downloader"
 	"github.com/iikira/BaiduPCS-Go/requester/transfer"
 	"github.com/oleiade/lane"
+	"github.com/zyxar/argo/rpc"
 	"golang.org/x/net/websocket"
 )
 
@@ -288,6 +290,37 @@ func checkFileValid(filePath string, fileInfo *baidupcs.FileDirectory) error {
 
 // RunDownload 执行下载网盘内文件
 func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions) {
+	if Aria2 {
+		//发送下载链接到Aria2
+		opts := make(map[string]interface{})
+		opts["user-agent"] = pcsconfig.Config.PanUA
+		if pcsconfig.Config.MaxParallel > 16 {
+			opts["max-connection-per-server"] = 16
+		} else {
+			opts["max-connection-per-server"] = pcsconfig.Config.MaxParallel
+		}
+		rpcc, err := rpc.New(context.Background(), Aria2_Url, Aria2_Secret, time.Second, nil)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
+		for k := range paths {
+			rawDlinks, err := getLocateDownloadLinks(paths[k])
+			if err == nil {
+				handleHTTPLinkURL(rawDlinks[0])
+				gid, err := rpcc.AddURI(rawDlinks[0].String(), opts)
+				if err == nil {
+					fmt.Printf("成功将 %s 送入Aria2下载列表，gid: %s\n", paths[k], gid)
+				} else {
+					fmt.Printf("添加任务到aria2时出错: %s 请检查aria2配置是否正确\n", err)
+				}
+			} else {
+				fmt.Printf("出错: %s\n", err)
+			}
+		}
+		rpcc.Close()
+		return
+	}
 	if options == nil {
 		options = &DownloadOptions{}
 	}

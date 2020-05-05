@@ -90,7 +90,6 @@ func init() {
 
 func main() {
 	defer pcsconfig.Config.Close()
-
 	app := cli.NewApp()
 	app.Name = "BaiduPCS-Go"
 	app.Version = Version
@@ -111,8 +110,28 @@ func main() {
 			EnvVar:      pcsverbose.EnvVerbose,
 			Destination: &pcsverbose.IsVerbose,
 		},
+		cli.BoolFlag{
+			Name:        "aria2, a",
+			Usage:       "启用aria2下载，停用自带下载",
+			Destination: &pcsweb.Aria2,
+		},
+		cli.StringFlag{
+			Name:        "aria2url, au",
+			Usage:       "aria2的url",
+			Value:       "http://localhost:6800/jsonrpc",
+			Destination: &pcsweb.Aria2_Url,
+		},
+		cli.StringFlag{
+			Name:        "aria2secret, as",
+			Usage:       "aria2-RPC的secret，默认为空",
+			Value:       "",
+			Destination: &pcsweb.Aria2_Secret,
+		},
 	}
 	app.Action = func(c *cli.Context) {
+		if pcsweb.Aria2 {
+			fmt.Printf("已经启用Aria2下载，停用默认下载，下载列表会为空，仍在开发中，可能不稳定\n")
+		}
 		fmt.Printf("打开浏览器, 输入 http://localhost:5299 查看效果\n")
 		//对于Windows和Mac，调用系统默认浏览器打开 http://localhost:5299
 		var cmd *exec.Cmd

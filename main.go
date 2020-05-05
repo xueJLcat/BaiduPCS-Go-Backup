@@ -44,7 +44,7 @@ const (
 
 var (
 	// Version 版本号
-	Version = "v3.7.0"
+	Version = "v3.7.1"
 
 	historyFilePath = filepath.Join(pcsconfig.GetConfigDir(), "pcs_command_history.txt")
 	reloadFn        = func(c *cli.Context) error {
@@ -93,6 +93,10 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "BaiduPCS-Go"
 	app.Version = Version
+	zponds := cli.Author{
+		Name:  "zponds",
+		Email: "wjhjd163@gmail.com",
+	}
 	liuzhuoling := cli.Author{
 		Name:  "liuzhuoling",
 		Email: "liuzhuoling2011@hotmail.com",
@@ -101,7 +105,7 @@ func main() {
 		Name:  "iikira",
 		Email: "i@mail.iikira.com",
 	}
-	app.Authors = []cli.Author{liuzhuoling, iikira}
+	app.Authors = []cli.Author{liuzhuoling, iikira, zponds}
 	app.Description = "BaiduPCS-Go 使用Go语言编写的百度网盘命令行客户端, 可以让你高效的使用百度云"
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{

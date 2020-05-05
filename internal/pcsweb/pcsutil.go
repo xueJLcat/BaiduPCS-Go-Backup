@@ -526,7 +526,7 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 		config.Save()
 	}
 	if rmethod == "update" {
-		url := "http://www.zoranjojo.top:9925/api/v1/update?goos=" + runtime.GOOS + "&goarch=" + runtime.GOARCH + "&version=" + Version
+		/* url := "http://www.zoranjojo.top:9925/api/v1/update?goos=" + runtime.GOOS + "&goarch=" + runtime.GOARCH + "&version=" + Version
 		resp, err := http.Get(url)
 		if err != nil {
 			sendHttpErrorResponse(w, -1, "查找版本更新失败")
@@ -537,10 +537,11 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			sendHttpErrorResponse(w, -2, "查找版本更新失败")
 		}
-		sendHttpResponse(w, "", string(body))
+		sendHttpResponse(w, "", string(body)) */
+		sendHttpErrorResponse(w, -1, "关闭在线更新通道")
 	}
 	if rmethod == "notice" {
-		url := "http://www.zoranjojo.top:9925/api/v1/notice"
+		/* url := "http://www.zoranjojo.top:9925/api/v1/notice"
 		resp, err := http.Get(url)
 		if err != nil {
 			sendHttpErrorResponse(w, -1, "查找通知信息失败")
@@ -552,7 +553,8 @@ func SettingHandle(w http.ResponseWriter, r *http.Request) {
 			sendHttpErrorResponse(w, -2, "查找通知信息失败")
 		}
 
-		sendHttpResponse(w, "", string(body))
+		sendHttpResponse(w, "", string(body)) */
+		sendHttpErrorResponse(w, -1, "关闭在线通知")
 	}
 }
 

@@ -5,6 +5,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
@@ -103,6 +105,33 @@ func LoginHandle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendHttpResponse(w, "账户登录成功", b)
+}
+
+func bdHandle(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	path = strings.TrimPrefix(path, "/bd/")
+	path = strings.Replace(path, "http:/", "http://", 1)
+	path = strings.Replace(path, "https:/", "https://", 1)
+	remote, err := url.Parse(path)
+	if err != nil {
+		panic(err)
+	}
+	r.URL.Host = remote.Host
+	r.URL.Path = remote.Path
+	r.URL.Scheme = remote.Scheme
+	r.Host = remote.Host
+	remote.Path = ""
+	if r.Header.Get("range") != "" || r.Header.Get("Range") != "" {
+		http.Redirect(w, r, path+"?"+r.URL.RawQuery, http.StatusMovedPermanently)
+		return
+	} else {
+		r.Method = "GET"
+		r.Header.Add("Range", "bytes=0-0")
+	}
+	if strings.HasSuffix(remote.Host, ".baidupcs.com") {
+		proxy := httputil.NewSingleHostReverseProxy(remote)
+		proxy.ServeHTTP(w, r)
+	}
 }
 
 func UserHandle(w http.ResponseWriter, r *http.Request) {

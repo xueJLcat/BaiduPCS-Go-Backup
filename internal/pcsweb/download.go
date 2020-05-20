@@ -294,6 +294,7 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 		//发送下载链接到Aria2
 		opts := make(map[string]interface{})
 		opts["user-agent"] = pcsconfig.Config.PanUA
+		opts["stream-piece-selector"] = "inorder"
 		if pcsconfig.Config.MaxParallel > 16 {
 			opts["max-connection-per-server"] = 16
 		} else {
@@ -308,7 +309,7 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 			rawDlinks, err := getLocateDownloadLinks(paths[k])
 			if err == nil {
 				handleHTTPLinkURL(rawDlinks[0])
-				gid, err := rpcc.AddURI(rawDlinks[0].String(), opts)
+				gid, err := rpcc.AddURI(Aria2_prefix+rawDlinks[0].String(), opts)
 				if err == nil {
 					fmt.Printf("成功将 %s 送入Aria2下载列表，并发数: %d，gid: %s\n", paths[k], opts["max-connection-per-server"], gid)
 				} else {

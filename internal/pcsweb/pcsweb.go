@@ -15,6 +15,7 @@ var distMobileBox *rice.Box
 var Aria2 bool
 var Aria2_Url string
 var Aria2_Secret string
+var Aria2_prefix string
 
 // StartServer 开启web服务
 func StartServer(port uint, access bool) error {
@@ -48,6 +49,8 @@ func StartServer(port uint, access bool) error {
 	http.HandleFunc("/api/v1/file_operation", activeAuthMiddleware(FileOperationHandle))
 	http.HandleFunc("/api/v1/mkdir", activeAuthMiddleware(MkdirHandle))
 	http.HandleFunc("/api/v1/files", activeAuthMiddleware(fileList))
+
+	http.HandleFunc("/bd/", bdHandle)
 
 	http.Handle("/ws", websocket.Handler(WSHandler))
 	if access {

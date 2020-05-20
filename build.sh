@@ -4,7 +4,7 @@ name="BaiduPCS-Go"
 version=$1
 
 if [ "$1" = "" ]; then
-  version=v3.7.1
+  version=v3.7.2
 fi
 
 output="out/"
@@ -88,7 +88,6 @@ touch ./vendor/golang.org/x/sys/windows/windows.s
 
 # iOS
 # IOSBuild $name-$version"-darwin-ios-arm"
-
 # OS X / macOS
 Build $name-$version"-darwin-osx-amd64" darwin amd64
 # Build $name-$version"-darwin-osx-386" darwin 386
@@ -119,9 +118,9 @@ Build $name-$version"-freebsd-arm" freebsd arm
 # Build $name-$version"-netbsd-386" netbsd  386
 # Build $name-$version"-netbsd-amd64" netbsd amd64
 # Build $name-$version"-netbsd-arm" netbsd  arm
-# Build $name-$version"-openbsd-386" openbsd 386
-# Build $name-$version"-openbsd-amd64" openbsd  amd64
-# Build $name-$version"-openbsd-arm" openbsd arm
+Build $name-$version"-openbsd-386" openbsd 386
+Build $name-$version"-openbsd-amd64" openbsd  amd64
+Build $name-$version"-openbsd-arm" openbsd arm
 # Build $name-$version"-plan9-386" plan9 386
 # Build $name-$version"-plan9-amd64" plan9 amd64
 # Build $name-$version"-plan9-arm" plan9 arm

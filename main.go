@@ -44,7 +44,7 @@ const (
 
 var (
 	// Version 版本号
-	Version = "v3.7.1"
+	Version = "v3.7.2"
 
 	historyFilePath = filepath.Join(pcsconfig.GetConfigDir(), "pcs_command_history.txt")
 	reloadFn        = func(c *cli.Context) error {
@@ -130,6 +130,12 @@ func main() {
 			Usage:       "aria2-RPC的secret，默认为空",
 			Value:       "",
 			Destination: &pcsweb.Aria2_Secret,
+		},
+		cli.StringFlag{
+			Name:        "aria2pre, ap",
+			Usage:       "aria2-RPC添加下载链接时附加在前面的前缀，用于解决下载时的403问题和拉黑后无法下载问题，默认为空，注意，前缀是以Aria2服务器为起始点的!例子: http://localhost:5299/bd/",
+			Value:       "",
+			Destination: &pcsweb.Aria2_prefix,
 		},
 	}
 	app.Action = func(c *cli.Context) {

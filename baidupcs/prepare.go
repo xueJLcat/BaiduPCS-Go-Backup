@@ -579,8 +579,10 @@ func (pcs *BaiduPCS) PrepareSharePSet(paths []string, period int) (dataReadClose
 
 	dataReadCloser, panError = pcs.sendReqReturnReadCloser(reqTypePan, OperationShareSet, http.MethodPost, panURL.String(), map[string]string{
 		"path_list":    mergeStringList(paths...),
-		"schannel":     "0",
+		"schannel":     "4",
 		"channel_list": "[]",
+		"public":       "0",
+		"pwd":          "pass",
 		"period":       strconv.Itoa(period),
 	}, map[string]string{
 		"Content-Type": "application/x-www-form-urlencoded",

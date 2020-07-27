@@ -133,9 +133,15 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:        "aria2pre, ap",
-			Usage:       "aria2-RPC添加下载链接时附加在前面的前缀，用于解决下载时的403问题和拉黑后无法下载问题，默认为空，注意，前缀是以Aria2服务器为起始点的!例子: http://localhost:5299/bd/",
+			Usage:       "aria2-RPC添加下载链接时附加在前面的前缀，用于解决可能出现下载时的403问题和拉黑后无法下载问题，默认为空，注意，前缀是以Aria2服务器为起始点的!例子: http://localhost:5299/bd/",
 			Value:       "",
 			Destination: &pcsweb.Aria2_prefix,
+		},
+		cli.StringFlag{
+			Name:        "pdurl, pd",
+			Usage:       "使用 https://github.com/TkzcM/baiduwp 搭建的Pandownload搭建网站加速下载的网址，如 https://pandl.live/ ，注意需要输入开头的https或http和末尾的/，默认不使用",
+			Value:       "",
+			Destination: &pcsweb.PD_Url,
 		},
 	}
 	app.Action = func(c *cli.Context) {

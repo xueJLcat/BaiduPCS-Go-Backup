@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -307,6 +309,11 @@ func RunDownload(conn *websocket.Conn, paths []string, options *DownloadOptions)
 		}
 		for k := range paths {
 			rawDlinks, err := getLocateDownloadLinks(paths[k])
+			if len(PD_Url) >= 4 {
+				opts["user-agent"] = "LogStatistic"
+			} else {
+				opts["user-agent"] = pcsconfig.Config.PanUA
+			}
 			if err == nil {
 				handleHTTPLinkURL(rawDlinks[0])
 				gid, err := rpcc.AddURI(Aria2_prefix+rawDlinks[0].String(), opts)
@@ -789,18 +796,85 @@ func RunFixMD5(pcspaths ...string) {
 }
 
 func getLocateDownloadLinks(pcspath string) (dlinks []*url.URL, err error) {
-	pcs := pcscommand.GetBaiduPCS()
-	dInfo, pcsError := pcs.LocateDownload(pcspath)
-	if pcsError != nil {
-		return nil, pcsError
-	}
+	if len(PD_Url) < 4 {
+		pcs := pcscommand.GetBaiduPCS()
+		dInfo, pcsError := pcs.LocateDownload(pcspath)
+		if pcsError != nil {
+			return nil, pcsError
+		}
 
-	us := dInfo.URLStrings(pcsconfig.Config.EnableHTTPS)
-	if len(us) == 0 {
+		us := dInfo.URLStrings(pcsconfig.Config.EnableHTTPS)
+		if len(us) == 0 {
+			return nil, ErrDlinkNotFound
+		}
+		config := pcsconfig.Config
+		config.SetPanUA("netdisk;2.2.51.6;netdisk;10.0.63;PC;android-android")
+		return us, nil
+	}
+	// 获取Pandownload网页版下载链接
+	// 先分享拿到分享链接
+	paths := make([]string, 0, 10)
+	fmt.Printf("检测到开启了Pandownload网页版加速功能，正在为%s 获取分享链接\n", pcspath)
+	paths = append(paths, pcspath)
+	shared, err := pcsconfig.Config.ActiveUserBaiduPCS().ShareSet(paths, nil)
+
+	fmt.Printf("获取的分享链接为: %s, 密码为pass\n", shared.Link)
+	surl := strings.TrimPrefix(shared.Link, "https://pan.baidu.com/s/")
+
+	// 再请求Pandownload网页版
+	fmt.Printf("正在请求PD网页版获取文件列表: %s\n", PD_Url+"list")
+	resp, err := http.Post(PD_Url+"list",
+		"application/x-www-form-urlencoded",
+		strings.NewReader("surl="+surl+"&pwd=pass"))
+	if err != nil {
 		return nil, ErrDlinkNotFound
 	}
 
-	return us, nil
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, ErrDlinkNotFound
+	}
+	flysnowRegexp := regexp.MustCompile(`dl\('(.*)',(.*),'(.*)','(.*)','(.*)','(.*)'\)`)
+	params := flysnowRegexp.FindStringSubmatch(string(body))
+
+	if len(params) < 6 {
+		fmt.Printf("文件列表请求失败!\n")
+		return nil, ErrDlinkNotFound
+	}
+	// 最终获得下载link
+	fmt.Printf("正在请求PD网页版获取下载链接: %s\n", PD_Url+"download")
+	resp, err = http.Post(PD_Url+"download",
+		"application/x-www-form-urlencoded",
+		strings.NewReader("fs_id="+params[1]+"&time="+params[2]+"&sign="+params[3]+"&randsk="+params[4]+"&share_id="+params[5]+"&uk="+params[6]))
+	if err != nil {
+		return nil, ErrDlinkNotFound
+	}
+	defer resp.Body.Close()
+	body, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("网页未回复或出错...\n")
+		return nil, ErrDlinkNotFound
+	}
+	// 获取http下载link
+	if pcsconfig.Config.EnableHTTPS {
+		flysnowRegexp = regexp.MustCompile(`(?U)id="https" href="(.*)"`)
+	} else {
+		flysnowRegexp = regexp.MustCompile(`(?U)id="http" href="(.*)"`)
+	}
+	params = flysnowRegexp.FindStringSubmatch(string(body))
+
+	if len(params) < 1 {
+		fmt.Printf("无法获取下载链接...\n")
+		return nil, ErrDlinkNotFound
+	}
+	urls := make([]*url.URL, 0, 10)
+	u, err := url.Parse(params[1])
+	urls = append(urls, u)
+	config := pcsconfig.Config
+	config.SetPanUA("LogStatistic")
+	fmt.Printf("成功获取下载链接: %s\n", params[1])
+	return urls, nil
 }
 
 func getLocatePanLink(pcs *baidupcs.BaiduPCS, fsID int64) (dlink string, err error) {

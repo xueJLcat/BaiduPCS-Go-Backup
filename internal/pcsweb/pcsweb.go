@@ -16,6 +16,7 @@ var Aria2 bool
 var Aria2_Url string
 var Aria2_Secret string
 var Aria2_prefix string
+var PD_Url string
 
 // StartServer 开启web服务
 func StartServer(port uint, access bool) error {

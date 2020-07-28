@@ -817,7 +817,9 @@ func getLocateDownloadLinks(pcspath string) (dlinks []*url.URL, err error) {
 	fmt.Printf("检测到开启了Pandownload网页版加速功能，正在为%s 获取分享链接\n", pcspath)
 	paths = append(paths, pcspath)
 	shared, err := pcsconfig.Config.ActiveUserBaiduPCS().ShareSet(paths, nil)
-
+	if err != nil {
+		return nil, ErrDlinkNotFound
+	}
 	fmt.Printf("获取的分享链接为: %s, 密码为pass\n", shared.Link)
 	surl := strings.TrimPrefix(shared.Link, "https://pan.baidu.com/s/")
 

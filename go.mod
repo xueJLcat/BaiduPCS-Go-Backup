@@ -35,5 +35,3 @@ require (
 	golang.org/x/sys v0.0.0-20200917073148-efd3b9a0ff20
 	google.golang.org/protobuf v1.25.0 // indirect
 )
-//replace github.com/iikira/Baidu-Login github.com/Erope/Baidu-Login v1.2.2
-//replace github.com/iikira/Baidu-tools github.com/Erope/Baidu-tools v0.0.0-20200918062113-82e4bcc32797

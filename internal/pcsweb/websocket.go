@@ -3,10 +3,10 @@ package pcsweb
 import (
 	"fmt"
 
+	baidulogin "github.com/Erope/Baidu-Login"
+	"github.com/Erope/BaiduPCS-Go/internal/pcsconfig"
+	"github.com/Erope/BaiduPCS-Go/internal/pcsfunctions/pcscaptcha"
 	"github.com/bitly/go-simplejson"
-	baidulogin "github.com/iikira/Baidu-Login"
-	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
-	"github.com/iikira/BaiduPCS-Go/internal/pcsfunctions/pcscaptcha"
 	"golang.org/x/net/websocket"
 )
 

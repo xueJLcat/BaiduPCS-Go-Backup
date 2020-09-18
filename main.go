@@ -9,16 +9,16 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/iikira/BaiduPCS-Go/baidupcs"
-	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
-	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
-	_ "github.com/iikira/BaiduPCS-Go/internal/pcsinit"
-	"github.com/iikira/BaiduPCS-Go/internal/pcsweb"
-	"github.com/iikira/BaiduPCS-Go/pcstable"
-	"github.com/iikira/BaiduPCS-Go/pcsutil"
-	"github.com/iikira/BaiduPCS-Go/pcsutil/checksum"
-	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
-	"github.com/iikira/BaiduPCS-Go/pcsverbose"
+	"github.com/Erope/BaiduPCS-Go/baidupcs"
+	"github.com/Erope/BaiduPCS-Go/internal/pcscommand"
+	"github.com/Erope/BaiduPCS-Go/internal/pcsconfig"
+	_ "github.com/Erope/BaiduPCS-Go/internal/pcsinit"
+	"github.com/Erope/BaiduPCS-Go/internal/pcsweb"
+	"github.com/Erope/BaiduPCS-Go/pcstable"
+	"github.com/Erope/BaiduPCS-Go/pcsutil"
+	"github.com/Erope/BaiduPCS-Go/pcsutil/checksum"
+	"github.com/Erope/BaiduPCS-Go/pcsutil/converter"
+	"github.com/Erope/BaiduPCS-Go/pcsverbose"
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli"
 )
@@ -229,7 +229,7 @@ func main() {
 				常规登录:
 					按提示一步一步来即可.
 				百度BDUSS获取方法:
-					参考这篇 Wiki: https://github.com/iikira/BaiduPCS-Go/wiki/关于-获取百度-BDUSS
+					参考这篇 Wiki: https://github.com/Erope/BaiduPCS-Go/wiki/关于-获取百度-BDUSS
 					或者百度搜索: 获取百度BDUSS
 			`,
 			Category: "百度帐号",

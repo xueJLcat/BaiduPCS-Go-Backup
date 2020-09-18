@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/iikira/BaiduPCS-Go/pcsverbose"
+	"github.com/Erope/BaiduPCS-Go/pcsverbose"
 	"golang.org/x/net/websocket"
 )
 

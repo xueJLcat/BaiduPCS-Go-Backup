@@ -13,11 +13,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/iikira/BaiduPCS-Go/baidupcs"
-	"github.com/iikira/BaiduPCS-Go/internal/pcscommand"
-	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
-	"github.com/iikira/BaiduPCS-Go/pcsutil/converter"
-	"github.com/iikira/BaiduPCS-Go/pcsverbose"
+	"github.com/Erope/BaiduPCS-Go/baidupcs"
+	"github.com/Erope/BaiduPCS-Go/internal/pcscommand"
+	"github.com/Erope/BaiduPCS-Go/internal/pcsconfig"
+	"github.com/Erope/BaiduPCS-Go/pcsutil/converter"
+	"github.com/Erope/BaiduPCS-Go/pcsverbose"
 )
 
 var (

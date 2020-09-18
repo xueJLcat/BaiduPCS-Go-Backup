@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iikira/BaiduPCS-Go/internal/pcsconfig"
+	"github.com/Erope/BaiduPCS-Go/internal/pcsconfig"
 )
 
 //session存储方式接口
